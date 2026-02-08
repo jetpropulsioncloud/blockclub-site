@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BlockClub</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <div class="topbar">
+      <div class="wrap topbar-inner">
+        <div class="brand">
+          <div class="logo-mark"></div>
+          <div class="logo-text">BlockClub</div>
+        </div>
+
+        <nav class="nav">
+          <a href="#servers">Servers</a>
+          <a href="#advertise">Advertise</a>
+          <a href="#discord">Discord</a>
+        </nav>
+
+        <a class="pill" href="#advertise">List a server</a>
+      </div>
+    </div>
+
+    <header class="hero">
+      <div class="wrap hero-inner">
+        <div class="hero-left">
+          <h1>Find your next Minecraft server.</h1>
+          <p class="sub">
+            Modern listings, clean ads, and featured spots for communities that deserve attention.
+          </p>
+
+          <div class="search">
+            <input type="text" placeholder="Search servers, modes, tags..." />
+            <button type="button">Search</button>
+          </div>
+
+          <div class="quick">
+            <span>Popular:</span>
+            <a href="#servers" class="chip">SMP</a>
+            <a href="#servers" class="chip">Economy</a>
+            <a href="#servers" class="chip">Medieval</a>
+            <a href="#servers" class="chip">Modded</a>
+          </div>
+
+          <div class="cta-row">
+            <a class="btn primary" href="#servers">Browse servers</a>
+            <a class="btn ghost" href="#advertise">Advertise</a>
+          </div>
+
+          <div class="joinbox">
+            <div class="join-left">
+              <div class="dot"></div>
+              <div>
+                <div class="join-title">BlockClub Official</div>
+                <div class="join-sub">Join: <b>play.mcblockclub.com</b></div>
+              </div>
+            </div>
+            <button class="copy" type="button" data-copy="play.mcblockclub.com">Copy IP</button>
+          </div>
+        </div>
+
+        <div class="hero-right">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Featured</div>
+              <div class="badge">Ad Slot</div>
+            </div>
+
+            <div class="featured-card">
+              <div class="fc-top">
+                <div class="server-icon"></div>
+                <div>
+                  <div class="fc-name">BlockClub SMP</div>
+                  <div class="fc-ip">play.mcblockclub.com</div>
+                </div>
+              </div>
+
+              <div class="tags">
+                <span class="tag">Survival</span>
+                <span class="tag">Economy</span>
+                <span class="tag">Guilds</span>
+              </div>
+
+              <div class="fc-bottom">
+                <div class="status online">Online</div>
+                <div class="players">24 players</div>
+              </div>
+
+              <a class="btn small" href="#advertise">Get featured like this</a>
+            </div>
+          </div>
+
+          <div class="panel mini">
+            <div class="panel-title">Why list on BlockClub?</div>
+            <ul class="bullets">
+              <li>Clean, modern cards</li>
+              <li>Sponsored placement options</li>
+              <li>Discord-first communities</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section id="servers" class="section">
+        <div class="section-head">
+          <h2>Trending servers</h2>
+          <div class="filters">
+            <button class="filter active" type="button">All</button>
+            <button class="filter" type="button">SMP</button>
+            <button class="filter" type="button">Skyblock</button>
+            <button class="filter" type="button">Modded</button>
+          </div>
+        </div>
+
+        <div class="grid">
+          <article class="card">
+            <div class="card-top">
+              <div class="server-icon small"></div>
+              <div>
+                <div class="card-title">BlockClub SMP</div>
+                <div class="card-sub">play.mcblockclub.com</div>
+              </div>
+              <div class="right">
+                <div class="status online">Online</div>
+                <div class="muted">24 players</div>
+              </div>
+            </div>
+            <div class="tags">
+              <span class="tag">Survival</span>
+              <span class="tag">Economy</span>
+              <span class="tag">Medieval</span>
+            </div>
+            <div class="card-actions">
+              <a class="btn small" href="#">View</a>
+              <button class="btn small ghost copy" type="button" data-copy="play.mcblockclub.com">Copy IP</button>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-top">
+              <div class="server-icon small"></div>
+              <div>
+                <div class="card-title">Example Network</div>
+                <div class="card-sub">play.example.net</div>
+              </div>
+              <div class="right">
+                <div class="status offline">Offline</div>
+                <div class="muted">—</div>
+              </div>
+            </div>
+            <div class="tags">
+              <span class="tag">Minigames</span>
+              <span class="tag">PvP</span>
+            </div>
+            <div class="card-actions">
+              <a class="btn small" href="#">View</a>
+              <button class="btn small ghost copy" type="button" data-copy="play.example.net">Copy IP</button>
+            </div>
+          </article>
+
+          <article class="card ghost-card">
+            <div class="ghost-inner">
+              <div class="ghost-title">Your server here</div>
+              <div class="muted">Sponsored + organic listings</div>
+              <a class="btn primary" href="#advertise">List a server</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="advertise" class="section">
+        <div class="section-head">
+          <h2>Advertise</h2>
+          <p class="muted">Start simple: featured slots + clean banner placements.</p>
+        </div>
+
+        <div class="pricing">
+          <div class="price">
+            <div class="price-top">
+              <div class="price-name">Starter</div>
+              <div class="price-num">$5<span>/mo</span></div>
+            </div>
+            <ul>
+              <li>Basic listing</li>
+              <li>One tag set</li>
+              <li>Copy IP button</li>
+            </ul>
+            <button class="btn primary" type="button">Choose</button>
+          </div>
+
+          <div class="price featured">
+            <div class="price-top">
+              <div class="price-name">Featured</div>
+              <div class="price-num">$15<span>/mo</span></div>
+            </div>
+            <ul>
+              <li>Homepage card slot</li>
+              <li>Priority placement</li>
+              <li>Custom banner image</li>
+            </ul>
+            <button class="btn primary" type="button">Choose</button>
+          </div>
+
+          <div class="price">
+            <div class="price-top">
+              <div class="price-name">Partner</div>
+              <div class="price-num">$35<span>/mo</span></div>
+            </div>
+            <ul>
+              <li>Top rotation slot</li>
+              <li>Discord CTA</li>
+              <li>Monthly promo post</li>
+            </ul>
+            <button class="btn primary" type="button">Choose</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="discord" class="section footer">
+        <div class="footer-inner">
+          <div>
+            <div class="logo-text">BlockClub</div>
+            <div class="muted">Minecraft server listings & ads.</div>
+          </div>
+          <div class="muted">© <span id="year"></span> BlockClub</div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const yearEl = document.getElementById("year");
+      yearEl.textContent = String(new Date().getFullYear());
+
+      const copyButtons = document.querySelectorAll("[data-copy]");
+      copyButtons.forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const value = btn.getAttribute("data-copy") || "";
+          try {
+            await navigator.clipboard.writeText(value);
+            const prev = btn.textContent;
+            btn.textContent = "Copied";
+            setTimeout(() => (btn.textContent = prev), 900);
+          } catch (e) {
+            alert("Copy failed. IP: " + value);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
