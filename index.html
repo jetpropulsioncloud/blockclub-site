@@ -196,6 +196,46 @@
     <div class="modal-backdrop" data-close-modal></div>
   </div>
     <script>
+      const VIEWS_KEY = "bc_views_v1";
+      const UPVOTES_KEY = "bc_upvotes_v1";
+
+      function loadMap(key) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return {};
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+          return {};
+        }
+      }
+
+      function saveMap(key, map) {
+        localStorage.setItem(key, JSON.stringify(map));
+      }
+
+      function getViews(slug) {
+        const map = loadMap(VIEWS_KEY);
+        return map[String(slug || "")] || 0;
+      }
+
+      function getUpvotedSet() {
+        const map = loadMap(UPVOTES_KEY);
+        return map && typeof map === "object" ? map : {};
+      }
+
+      function toggleUpvote(slug) {
+        const key = String(slug || "");
+        const map = loadMap(UPVOTES_KEY);
+        map[key] = !map[key];
+        saveMap(UPVOTES_KEY, map);
+        return map[key] === true;
+      }
+
+      function countUpvotes(slug) {
+        const map = loadMap(UPVOTES_KEY);
+        return map[String(slug || "")] ? 1 : 0;
+      }
       const yearEl = document.getElementById("year");
       yearEl.textContent = String(new Date().getFullYear());
 
@@ -282,9 +322,24 @@
 
         return hay.includes(needle);
       }
+      function trendingScore(s) {
+        const slug = String(s.slug || "");
+        const views = getViews(slug);
+        const up = countUpvotes(slug);
+
+        const created = typeof s.createdAt === "number" ? s.createdAt : 0;
+        const ageHours = created ? (Date.now() - created) / 36e5 : 9999;
+
+        const recencyBoost = Math.max(0, 48 - ageHours);
+
+        return views * 1 + up * 25 + recencyBoost * 0.25;
+      }
       function sortServers(list) {
         const copy = [...list];
-
+        if (activeSort === "trending") {
+          copy.sort((a, b) => trendingScore(b) - trendingScore(a));
+          return copy;
+        }
         if (activeSort === "players") {
           copy.sort((a, b) => {
             const ap = typeof a.players === "number" ? a.players : -1;
@@ -324,6 +379,12 @@
               <div class="ghost-inner">
                 <div class="ghost-title">No servers found</div>
                 <div class="muted">Try a different search or filter.</div>
+              </div>
+              <div class="meta-row" style="margin-top:10px;">
+                <span class="pill-mini">${getViews(s.slug)} views</span>
+                <button class="pill-mini" type="button" data-upvote="${escapeHtml(s.slug)}">
+                  ▲ ${countUpvotes(s.slug) ? "Upvoted" : "Upvote"}
+                </button>
               </div>
             </article>
           `;
@@ -432,7 +493,14 @@
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") closeModal();
       });
+      document.addEventListener("click", (e) => {
+        const up = e.target.closest("[data-upvote]");
+        if (!up) return;
 
+        const slug = up.getAttribute("data-upvote") || "";
+        toggleUpvote(slug);
+        applyFilters();
+      });
       filterButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
           filterButtons.forEach((b) => b.classList.remove("active"));
