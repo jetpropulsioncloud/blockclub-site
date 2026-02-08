@@ -198,7 +198,7 @@
     <script>
       const VIEWS_KEY = "bc_views_v1";
       const UPVOTES_KEY = "bc_upvotes_v1";
-
+      const SORT_KEY = "bc_sort_v1";
       function loadMap(key) {
         try {
           const raw = localStorage.getItem(key);
@@ -380,10 +380,7 @@
               <div class="ghost-inner">
                 <div class="ghost-title">No servers found</div>
                 <div class="muted">Try a different search or filter.</div>
-              </div>
-              <div class="meta-row" style="margin-top:10px;">
-                  ▲ ${countUpvotes(s.slug) ? "Upvoted" : "Upvote"}
-                </button>
+                <a class="btn primary" href="submit.html">List a server</a>
               </div>
             </article>
           `;
@@ -412,15 +409,16 @@
                     <div class="status ${statusClass}">${s.status === "online" ? "Online" : "Offline"}</div>
                     <div class="muted">${escapeHtml(playersText)}</div>
                   </div>
-                  <div class="meta-row" style="margin-top:10px;">
-                    <span class="pill-mini">${getViews(s.slug)} views</span>
-                    <button class="pill-mini" type="button" data-upvote="${escapeHtml(s.slug)}">
-                      ▲ ${countUpvotes(s.slug) ? "Upvoted" : "Upvote"}
-                    </button>
-                  </div>
                 </div>
 
                 <div class="tags">${tagsHtml}</div>
+
+                <div class="meta-row" style="margin-top:10px;">
+                  <span class="pill-mini">${getViews(s.slug)} views</span>
+                  <button class="pill-mini" type="button" data-upvote="${escapeHtml(s.slug)}">
+                    ▲ ${countUpvotes(s.slug) ? "Upvoted" : "Upvote"}
+                  </button>
+                </div>
 
                 <div class="card-actions">
                   <button class="btn small view-btn" type="button" data-view="${escapeHtml(s.slug)}">View</button>
