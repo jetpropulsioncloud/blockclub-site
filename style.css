@@ -566,3 +566,266 @@ h1 {
     font-size: 38px;
   }
 }
+.modal.hidden {
+  display: none;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.45);
+  backdrop-filter: blur(6px);
+}
+
+.modal-card {
+  position: relative;
+  width: min(560px, calc(100% - 24px));
+  margin: 72px auto;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: var(--soft);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modal-title {
+  font-weight: 950;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.modal-sub {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.modal-x {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.modal-form {
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field-label {
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 14px;
+  padding: 12px 12px;
+  outline: none;
+  font-size: 14px;
+  background: #fff;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: rgba(29, 191, 115, 0.5);
+}
+
+.form-error {
+  border: 1px solid rgba(251, 146, 60, 0.35);
+  background: #fff7ed;
+  color: #7c2d12;
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+.controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sort {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sort select {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 12px;
+  background: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  outline: none;
+}
+.field textarea {
+  width: 100%;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 14px;
+  padding: 12px 12px;
+  outline: none;
+  font-size: 14px;
+  background: #fff;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.field textarea:focus {
+  border-color: rgba(29, 191, 115, 0.5);
+}
+.market {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 920px) {
+  .market {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cover {
+  border: 1px solid var(--line);
+  border-radius: var(--soft);
+  overflow: hidden;
+  background: rgba(255,255,255,0.7);
+  box-shadow: var(--shadow);
+}
+
+.cover-img {
+  height: 220px;
+  background: linear-gradient(180deg, rgba(2,6,23,0.04), rgba(2,6,23,0.02));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(2,6,23,0.55);
+  font-weight: 900;
+}
+
+.cover-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pill-mini {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-weight: 900;
+  font-size: 12px;
+}
+
+.desc {
+  margin-top: 12px;
+  line-height: 1.6;
+  font-size: 14px;
+  color: rgba(2,6,23,0.85);
+}
+
+.package {
+  position: sticky;
+  top: 80px;
+  border: 1px solid var(--line);
+  border-radius: var(--soft);
+  background: rgba(255,255,255,0.92);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.package-title {
+  font-weight: 950;
+  letter-spacing: -0.02em;
+}
+
+.package-price {
+  font-weight: 950;
+  font-size: 22px;
+  margin-top: 6px;
+}
+
+.package ul {
+  margin: 10px 0 0 0;
+  padding-left: 18px;
+  color: rgba(2,6,23,0.8);
+  font-size: 13px;
+}
+
+.package .btn {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.small-note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(2,6,23,0.55);
+}
+.field textarea {
+  width: 100%;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 14px;
+  padding: 12px 12px;
+  outline: none;
+  font-size: 14px;
+  background: #fff;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.field textarea:focus {
+  border-color: rgba(29, 191, 115, 0.5);
+}
+
+.cover-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
