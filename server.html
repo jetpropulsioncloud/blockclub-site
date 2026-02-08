@@ -52,6 +52,7 @@
                 <div class="meta-row">
                 <span id="spStatusPill" class="pill-mini">—</span>
                 <span id="spModePill" class="pill-mini">—</span>
+                <span id="spViewsPill" class="pill-mini">—</span>
                 <span id="spPlayersPill" class="pill-mini">—</span>
                 </div>
 
@@ -85,6 +86,29 @@
     </main>
 
     <script>
+      const VIEWS_KEY = "bc_views_v1";
+
+        function loadViews() {
+        try {
+            const raw = localStorage.getItem(VIEWS_KEY);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+            return {};
+        }
+        }
+
+        function saveViews(map) {
+        localStorage.setItem(VIEWS_KEY, JSON.stringify(map));
+        }
+
+        function bumpView(slug) {
+        const map = loadViews();
+        map[slug] = (map[slug] || 0) + 1;
+        saveViews(map);
+        return map[slug];
+      }
       const STORAGE_KEY = "bc_servers_v1";
 
       const baseServers = [
@@ -151,6 +175,9 @@
         document.getElementById("serverPage").style.display = "grid";
 
         const nameEl = document.getElementById("spName");
+        const viewsMap = loadViews();
+        const views = viewsMap[String(s.slug || "")] || 0;
+        document.getElementById("spViewsPill").textContent = `${views} views`;
         const ipEl = document.getElementById("spIp");
         const tagsEl = document.getElementById("spTags");
         const descEl = document.getElementById("spDesc");
@@ -202,6 +229,7 @@
       if (!slug || !server) {
         renderNotFound();
       } else {
+        bumpView(slug);
         renderServer(server);
       }
     </script>
