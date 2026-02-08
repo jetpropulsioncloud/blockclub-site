@@ -829,3 +829,9 @@ h1 {
   object-fit: cover;
   display: block;
 }
+button.pill-mini {
+  cursor: pointer;
+}
+button.pill-mini:active {
+  transform: translateY(1px);
+}
