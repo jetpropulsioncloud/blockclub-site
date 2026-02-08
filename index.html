@@ -293,7 +293,8 @@
       const searchBtn = document.getElementById("searchBtn");
       const filterButtons = Array.from(document.querySelectorAll(".filter[data-filter]"));
       const sortSelect = document.getElementById("sortSelect");
-      let activeSort = "trending";
+      let activeSort = localStorage.getItem(SORT_KEY) || "trending";
+      if (sortSelect) sortSelect.value = activeSort;
 
       let activeFilter = "all";
       let activeQuery = "";
@@ -381,15 +382,11 @@
                 <div class="muted">Try a different search or filter.</div>
               </div>
               <div class="meta-row" style="margin-top:10px;">
-                <span class="pill-mini">${getViews(s.slug)} views</span>
-                <button class="pill-mini" type="button" data-upvote="${escapeHtml(s.slug)}">
                   ▲ ${countUpvotes(s.slug) ? "Upvoted" : "Upvote"}
                 </button>
               </div>
             </article>
           `;
-          wireCopyButtons();
-          wireViewButtons();
           return;
         }
 
@@ -414,6 +411,12 @@
                   <div class="right">
                     <div class="status ${statusClass}">${s.status === "online" ? "Online" : "Offline"}</div>
                     <div class="muted">${escapeHtml(playersText)}</div>
+                  </div>
+                  <div class="meta-row" style="margin-top:10px;">
+                    <span class="pill-mini">${getViews(s.slug)} views</span>
+                    <button class="pill-mini" type="button" data-upvote="${escapeHtml(s.slug)}">
+                      ▲ ${countUpvotes(s.slug) ? "Upvoted" : "Upvote"}
+                    </button>
                   </div>
                 </div>
 
@@ -487,6 +490,7 @@
       }
       sortSelect?.addEventListener("change", () => {
         activeSort = sortSelect.value || "trending";
+        localStorage.setItem(SORT_KEY, activeSort);
         applyFilters();
       });
 
