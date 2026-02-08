@@ -198,6 +198,7 @@
     <script>
       const VIEWS_KEY = "bc_views_v1";
       const UPVOTES_KEY = "bc_upvotes_v1";
+      const VIEWED_KEY = "bc_viewed_v1";
       const SORT_KEY = "bc_sort_v1";
       function loadMap(key) {
         try {
@@ -209,7 +210,29 @@
           return {};
         }
       }
+      function loadViewedSet() {
+        try {
+          const raw = localStorage.getItem(VIEWED_KEY);
+          if (!raw) return {};
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+          return {};
+        }
+      }
 
+      function markViewed(slug) {
+        const key = String(slug || "");
+        const map = loadViewedSet();
+        map[key] = true;
+        localStorage.setItem(VIEWED_KEY, JSON.stringify(map));
+      }
+
+      function hasViewed(slug) {
+        const key = String(slug || "");
+        const map = loadViewedSet();
+        return map[key] === true;
+      }
       function saveMap(key, map) {
         localStorage.setItem(key, JSON.stringify(map));
       }
@@ -413,17 +436,21 @@
 
                 <div class="tags">${tagsHtml}</div>
 
-                <div class="tags">${tagsHtml}</div>
-            
                 <div class="card-actions">
                   <button class="btn small view-btn" type="button" data-view="${escapeHtml(s.slug)}">View</button>
-            
+
                   <button class="btn small ghost copy" type="button" data-copy="${escapeHtml(s.ip)}">Copy IP</button>
-            
-                  <button class="btn small ghost" type="button" data-upvote="${escapeHtml(s.slug)}">
+
+                  <button
+                    class="btn small ghost"
+                    type="button"
+                    data-upvote="${escapeHtml(s.slug)}"
+                    ${hasViewed(s.slug) ? "" : "disabled"}
+                    ${hasViewed(s.slug) ? "" : 'title="View the server first to upvote"'}
+                  >
                     ▲ ${countUpvotes(s.slug) ? "Upvoted" : "Upvote"}
                   </button>
-            
+
                   <span class="pill-mini">${getViews(s.slug)} views</span>
                 </div>
               </article>
@@ -475,6 +502,8 @@
             const s = servers.find((x) => x.slug === slug);
             if (!s) return;
 
+            markViewed(s.slug);
+
             window.location.href = `server.html?slug=${encodeURIComponent(s.slug)}`;
           });
         });
@@ -502,6 +531,12 @@
         if (!up) return;
 
         const slug = up.getAttribute("data-upvote") || "";
+
+        if (!hasViewed(slug)) {
+          alert("View the server first to upvote.");
+          return;
+        }
+
         toggleUpvote(slug);
         applyFilters();
       });
