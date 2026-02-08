@@ -21,7 +21,7 @@
           <a href="#discord">Discord</a>
         </nav>
 
-        <a class="pill" href="#advertise">List a server</a>
+        <button class="pill" type="button" data-open-listing>List a server</button>
       </div>
     </div>
 
@@ -179,12 +179,57 @@
         </div>
       </section>
     </main>
+    <div id="listingModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
 
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="listingTitle">
+      <div class="modal-head">
+        <div>
+          <div id="listingTitle" class="modal-title">List a server</div>
+          <div class="modal-sub muted">Add your server to the trending list.</div>
+        </div>
+        <button type="button" class="modal-x" data-close-modal aria-label="Close">✕</button>
+      </div>
+
+      <form id="listingForm" class="modal-form">
+        <label class="field">
+          <span class="field-label">Server name</span>
+          <input id="fieldName" type="text" placeholder="BlockClub SMP" required />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Server IP</span>
+          <input id="fieldIp" type="text" placeholder="play.example.com" required />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Mode</span>
+          <select id="fieldMode" required>
+            <option value="smp">SMP</option>
+            <option value="skyblock">Skyblock</option>
+            <option value="modded">Modded</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Tags (comma separated)</span>
+          <input id="fieldTags" type="text" placeholder="Survival, Economy, Medieval" />
+        </label>
+
+        <div id="formError" class="form-error hidden"></div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" data-close-modal>Cancel</button>
+          <button type="submit" class="btn primary">Submit listing</button>
+        </div>
+      </form>
+    </div>
+  </div>
     <script>
       const yearEl = document.getElementById("year");
       yearEl.textContent = String(new Date().getFullYear());
 
-      const servers = [
+      let baseServers = [
         {
           name: "BlockClub SMP",
           ip: "play.mcblockclub.com",
@@ -213,7 +258,26 @@
           slug: "sky-isles"
         }
       ];
+      const STORAGE_KEY = "bc_servers_v1";
 
+      function loadStoredServers() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return [];
+          return parsed;
+        } catch {
+          return [];
+        }
+      }
+
+      function saveStoredServers(list) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      }
+
+      let storedServers = loadStoredServers();
+      let servers = [...baseServers, ...storedServers];
       const serverGrid = document.getElementById("serverGrid");
       const searchInput = document.getElementById("searchInput");
       const searchBtn = document.getElementById("searchBtn");
@@ -261,7 +325,7 @@
               <div class="ghost-inner">
                 <div class="ghost-title">No servers found</div>
                 <div class="muted">Try a different search or filter.</div>
-                <a class="btn primary" href="#advertise">List a server</a>
+                <button class="btn primary" type="button" data-open-listing>List a server</button>
               </div>
             </article>
           `;
@@ -314,7 +378,7 @@
               <div class="ghost-inner">
                 <div class="ghost-title">Your server here</div>
                 <div class="muted">Sponsored + organic listings</div>
-                <a class="btn primary" href="#advertise">List a server</a>
+                <button class="btn primary" type="button" data-open-listing>List a server</button>
               </div>
             </article>
           `
@@ -361,7 +425,122 @@
 
         renderServers(filtered);
       }
+      const modal = document.getElementById("listingModal");
+      const form = document.getElementById("listingForm");
+      const formError = document.getElementById("formError");
+      const fieldName = document.getElementById("fieldName");
+      const fieldIp = document.getElementById("fieldIp");
+      const fieldMode = document.getElementById("fieldMode");
+      const fieldTags = document.getElementById("fieldTags");
 
+      function openModal() {
+        if (!modal) return;
+        modal.classList.remove("hidden");
+        modal.setAttribute("aria-hidden", "false");
+        if (formError) formError.classList.add("hidden");
+        if (form) form.reset();
+        setTimeout(() => fieldName?.focus(), 0);
+      }
+
+      function closeModal() {
+        if (!modal) return;
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+      }
+
+      function normalizeTags(raw) {
+        const parts = String(raw || "")
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+
+        const unique = [];
+        const seen = new Set();
+        for (const t of parts) {
+          const key = t.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(t);
+          }
+        }
+        return unique.slice(0, 6);
+      }
+
+      function makeSlug(name, ip) {
+        const base = `${name}-${ip}`
+          .toLowerCase()
+          .replaceAll(/[^a-z0-9]+/g, "-")
+          .replaceAll(/^-+|-+$/g, "");
+
+        return base.slice(0, 50) || `server-${Date.now()}`;
+      }
+
+      function showError(msg) {
+        if (!formError) return;
+        formError.textContent = msg;
+        formError.classList.remove("hidden");
+      }
+
+      document.addEventListener("click", (e) => {
+        const openBtn = e.target.closest("[data-open-listing]");
+        if (openBtn) {
+          openModal();
+          return;
+        }
+
+        const closeBtn = e.target.closest("[data-close-modal]");
+        if (closeBtn) {
+          closeModal();
+        }
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeModal();
+      });
+
+      if (form) {
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+
+          const name = (fieldName?.value || "").trim();
+          const ip = (fieldIp?.value || "").trim();
+          const mode = (fieldMode?.value || "smp").trim();
+          const tags = normalizeTags(fieldTags?.value || "");
+
+          if (!name) return showError("Please enter a server name.");
+          if (!ip) return showError("Please enter a server IP.");
+
+          const ipKey = ip.toLowerCase();
+          const already = servers.some((s) => String(s.ip || "").toLowerCase() === ipKey);
+          if (already) return showError("That server IP is already listed.");
+
+          const newServer = {
+            name,
+            ip,
+            status: "online",
+            players: null,
+            mode,
+            tags,
+            slug: makeSlug(name, ip)
+          };
+
+          storedServers = [newServer, ...storedServers];
+          saveStoredServers(storedServers);
+
+          servers = [newServer, ...servers];
+          closeModal();
+
+          activeFilter = "all";
+          activeQuery = "";
+          if (searchInput) searchInput.value = "";
+          setActiveFilterButton("all");
+
+          applyFilters();
+
+          const section = document.getElementById("servers");
+          section?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
       filterButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
           filterButtons.forEach((b) => b.classList.remove("active"));
@@ -389,7 +568,9 @@
       }
 
       chips.forEach((chip) => {
-        chip.addEventListener("click", () => {
+        chip.addEventListener("click", (e) => {
+          e.preventDefault();
+
           const value = (chip.getAttribute("data-chip") || "").toLowerCase();
 
           if (value === "smp" || value === "modded" || value === "skyblock") {
@@ -409,7 +590,7 @@
           applyFilters();
         });
       });
-      
+
       renderServers(servers);
     </script>
   </body>
