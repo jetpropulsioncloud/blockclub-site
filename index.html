@@ -413,16 +413,18 @@
 
                 <div class="tags">${tagsHtml}</div>
 
-                <div class="meta-row" style="margin-top:10px;">
-                  <span class="pill-mini">${getViews(s.slug)} views</span>
-                  <button class="pill-mini" type="button" data-upvote="${escapeHtml(s.slug)}">
-                    ▲ ${countUpvotes(s.slug) ? "Upvoted" : "Upvote"}
-                  </button>
-                </div>
-
+                <div class="tags">${tagsHtml}</div>
+            
                 <div class="card-actions">
                   <button class="btn small view-btn" type="button" data-view="${escapeHtml(s.slug)}">View</button>
+            
                   <button class="btn small ghost copy" type="button" data-copy="${escapeHtml(s.ip)}">Copy IP</button>
+            
+                  <button class="btn small ghost" type="button" data-upvote="${escapeHtml(s.slug)}">
+                    ▲ ${countUpvotes(s.slug) ? "Upvoted" : "Upvote"}
+                  </button>
+            
+                  <span class="pill-mini">${getViews(s.slug)} views</span>
                 </div>
               </article>
             `;
