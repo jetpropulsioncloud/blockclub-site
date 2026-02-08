@@ -1,1 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Server • BlockClub</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
 
+  <body>
+    <div class="topbar">
+      <div class="wrap topbar-inner">
+        <a class="brand" href="index.html#servers" style="text-decoration:none;">
+          <div class="logo-mark"></div>
+          <div class="logo-text">BlockClub</div>
+        </a>
+
+        <nav class="nav">
+          <a href="index.html#servers">Servers</a>
+          <a href="index.html#advertise">Advertise</a>
+          <a href="index.html#discord">Discord</a>
+        </nav>
+
+        <a class="pill" href="index.html#servers">Back</a>
+      </div>
+    </div>
+
+    <main class="wrap" style="padding-top: 18px;">
+      <section class="section">
+        <div id="notFound" class="card ghost-card" style="display:none;">
+        <div class="ghost-inner">
+            <div class="ghost-title">Server not found</div>
+            <div class="muted">This listing may have been removed or the link is wrong.</div>
+            <a class="btn primary" href="index.html#servers">Back to servers</a>
+        </div>
+        </div>
+
+        <div id="serverPage" class="market" style="display:none;">
+        <div>
+            <div class="cover">
+            <div id="coverWrap" class="cover-img">
+                <div class="muted">No banner provided</div>
+            </div>
+
+            <div style="padding: 14px;">
+                <div id="spName" class="modal-title">—</div>
+                <div class="muted" style="margin-top: 4px;">
+                <span id="spIp">—</span>
+                <button id="copyIpBtn" class="btn small ghost" type="button" style="margin-left:10px;">Copy IP</button>
+                </div>
+
+                <div class="meta-row">
+                <span id="spStatusPill" class="pill-mini">—</span>
+                <span id="spModePill" class="pill-mini">—</span>
+                <span id="spPlayersPill" class="pill-mini">—</span>
+                </div>
+
+                <div id="spTags" class="tags" style="margin-top: 12px;"></div>
+
+                <div class="desc">
+                <div class="field-label">About this server</div>
+                <div id="spDesc" class="muted" style="margin-top: 6px;">No description yet.</div>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <aside class="package">
+            <div class="package-title">Featured placement</div>
+            <div class="muted" style="margin-top:4px;">Boost visibility like a Fiverr gig.</div>
+
+            <div class="package-price">$15<span class="muted" style="font-size:12px;"> / mo</span></div>
+
+            <ul>
+            <li>Homepage featured card</li>
+            <li>Priority placement in listings</li>
+            <li>Custom banner support</li>
+            </ul>
+
+            <a class="btn primary" href="index.html#advertise">Get featured</a>
+            <div class="small-note">Payments later — this is a placeholder CTA for now.</div>
+        </aside>
+        </div>
+    </section>
+    </main>
+
+    <script>
+      const STORAGE_KEY = "bc_servers_v1";
+
+      const baseServers = [
+        {
+          name: "BlockClub SMP",
+          ip: "play.mcblockclub.com",
+          status: "online",
+          players: 24,
+          mode: "smp",
+          tags: ["Survival", "Economy", "Guilds", "Medieval"],
+          slug: "blockclub-smp"
+        },
+        {
+          name: "Example Network",
+          ip: "play.example.net",
+          status: "offline",
+          players: null,
+          mode: "modded",
+          tags: ["Minigames", "PvP"],
+          slug: "example-network"
+        },
+        {
+          name: "Sky Isles",
+          ip: "play.skyisles.gg",
+          status: "online",
+          players: 112,
+          mode: "skyblock",
+          tags: ["Skyblock", "Custom Enchants", "PvE"],
+          slug: "sky-isles"
+        }
+      ];
+
+      function loadStoredServers() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return [];
+          return parsed;
+        } catch {
+          return [];
+        }
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function getSlugFromUrl() {
+        const url = new URL(window.location.href);
+        return (url.searchParams.get("slug") || "").trim();
+      }
+
+      function renderNotFound() {
+        document.getElementById("notFound").style.display = "block";
+      }
+
+        function renderServer(s) {
+        document.getElementById("serverPage").style.display = "grid";
+
+        const nameEl = document.getElementById("spName");
+        const ipEl = document.getElementById("spIp");
+        const tagsEl = document.getElementById("spTags");
+        const descEl = document.getElementById("spDesc");
+
+        nameEl.textContent = s.name || "—";
+        ipEl.textContent = s.ip || "—";
+
+        const statusText = s.status === "online" ? "Online" : "Offline";
+        document.getElementById("spStatusPill").textContent = statusText;
+        document.getElementById("spModePill").textContent = String(s.mode || "—").toUpperCase();
+
+        const playersText =
+            s.status === "online" && typeof s.players === "number" ? `${s.players} players` : "— players";
+        document.getElementById("spPlayersPill").textContent = playersText;
+
+        const tags = (s.tags || []).slice(0, 10);
+        tagsEl.innerHTML = tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+
+        const desc = (s.description || "").trim();
+        descEl.textContent = desc ? desc : "No description yet.";
+
+        const coverWrap = document.getElementById("coverWrap");
+        const banner = (s.bannerUrl || "").trim();
+        if (banner) {
+            coverWrap.innerHTML = `<img src="${escapeHtml(banner)}" alt="Server banner" />`;
+        } else {
+            coverWrap.innerHTML = `<div class="muted">No banner provided</div>`;
+        }
+
+        copyBtn.onclick = async () => {
+        const value = s.ip || "";
+            try {
+                await navigator.clipboard.writeText(value);
+                const prev = copyBtn.textContent;
+                copyBtn.textContent = "Copied";
+                setTimeout(() => (copyBtn.textContent = prev), 900);
+            } catch {
+                alert("Copy failed. IP: " + value);
+            }
+        };
+
+        document.title = `${s.name || "Server"} • BlockClub`;
+        }
+
+      const slug = getSlugFromUrl();
+      const servers = [...baseServers, ...loadStoredServers()];
+      const server = servers.find((x) => String(x.slug || "") === slug);
+
+      if (!slug || !server) {
+        renderNotFound();
+      } else {
+        renderServer(server);
+      }
+    </script>
+  </body>
+</html>
