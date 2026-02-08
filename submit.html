@@ -1,1 +1,225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>List a Server • BlockClub</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
 
+  <body>
+    <div class="topbar">
+      <div class="wrap topbar-inner">
+        <a class="brand" href="index.html" style="text-decoration:none;">
+          <div class="logo-mark"></div>
+          <div class="logo-text">BlockClub</div>
+        </a>
+
+        <nav class="nav">
+          <a href="index.html#servers">Servers</a>
+          <a href="index.html#advertise">Advertise</a>
+          <a href="index.html#discord">Discord</a>
+        </nav>
+
+        <a class="pill" href="index.html#servers">Back</a>
+      </div>
+    </div>
+
+    <main class="wrap" style="padding-top: 18px;">
+      <section class="section">
+        <div class="section-head">
+          <h2>List your server</h2>
+          <p class="muted">This will add your server to the BlockClub directory.</p>
+        </div>
+
+        <div class="card">
+          <form id="submitForm" class="modal-form">
+            <label class="field">
+              <span class="field-label">Server name</span>
+              <input id="fieldName" type="text" placeholder="BlockClub SMP" required />
+            </label>
+
+            <label class="field">
+              <span class="field-label">Server IP</span>
+              <input id="fieldIp" type="text" placeholder="play.example.com" required />
+            </label>
+            <label class="field">
+                <span class="field-label">Banner image URL</span>
+                <input id="fieldBanner" type="url" placeholder="https://..." />
+                <span class="muted" style="font-size:12px;">Tip: use a direct image link (PNG/JPG/WebP).</span>
+            </label>
+
+            <div class="cover" style="margin-top: 10px;">
+                <div id="bannerPreview" class="cover-img">
+                    <div class="muted">Banner preview</div>
+                </div>
+            </div>
+
+            <label class="field" style="margin-top: 12px;">
+                <span class="field-label">Description</span>
+                <textarea id="fieldDesc" rows="5" placeholder="Describe your server like a Fiverr gig: what it is, why it's fun, and who it's for."></textarea>
+                <span id="descCount" class="muted" style="font-size:12px;">0 / 500</span>
+            </label>
+            <label class="field">
+              <span class="field-label">Mode</span>
+              <select id="fieldMode" required>
+                <option value="smp">SMP</option>
+                <option value="skyblock">Skyblock</option>
+                <option value="modded">Modded</option>
+              </select>
+            <label class="field">
+                <span class="field-label">Banner image URL</span>
+                <input id="fieldBanner" type="url" placeholder="https://..." />
+                <span class="muted" style="font-size:12px;">Tip: use a direct image link (PNG/JPG/WebP).</span>
+            </label>
+
+            <label class="field">
+                <span class="field-label">Description</span>
+                <textarea id="fieldDesc" rows="5" placeholder="Tell players what makes your server special..."></textarea>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Tags (comma separated)</span>
+              <input id="fieldTags" type="text" placeholder="Survival, Economy, Medieval" />
+            </label>
+
+            <div id="formError" class="form-error hidden"></div>
+
+            <div class="modal-actions">
+              <a class="btn ghost" href="index.html#servers">Cancel</a>
+              <button type="submit" class="btn primary">Submit listing</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const STORAGE_KEY = "bc_servers_v1";
+      const fieldBanner = document.getElementById("fieldBanner");
+      const fieldDesc = document.getElementById("fieldDesc");
+      const bannerPreview = document.getElementById("bannerPreview");
+      const descCount = document.getElementById("descCount");
+      function loadStoredServers() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return [];
+          return parsed;
+        } catch {
+          return [];
+        }
+      }
+      function renderBannerPreview() {
+        const url = (fieldBanner.value || "").trim();
+        if (!bannerPreview) return;
+
+        if (!url) {
+            bannerPreview.innerHTML = `<div class="muted">Banner preview</div>`;
+            return;
+        }
+
+        const safe = url.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+
+        bannerPreview.innerHTML = `<img src="${safe}" alt="Banner preview" />`;
+        const img = bannerPreview.querySelector("img");
+        img.onerror = () => {
+            bannerPreview.innerHTML = `<div class="muted">Banner failed to load</div>`;
+        };
+        }
+
+        function renderDescCount() {
+        if (!fieldDesc || !descCount) return;
+        const len = (fieldDesc.value || "").length;
+        descCount.textContent = `${len} / 500`;
+        }
+
+        fieldBanner?.addEventListener("input", renderBannerPreview);
+        fieldDesc?.addEventListener("input", () => {
+        if (fieldDesc.value.length > 500) fieldDesc.value = fieldDesc.value.slice(0, 500);
+        renderDescCount();
+        });
+
+        renderBannerPreview();
+        renderDescCount();
+
+      function saveStoredServers(list) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      }
+
+      function normalizeTags(raw) {
+        const parts = String(raw || "")
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+
+        const unique = [];
+        const seen = new Set();
+        for (const t of parts) {
+          const key = t.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(t);
+          }
+        }
+        return unique.slice(0, 6);
+      }
+
+      function makeSlug(name, ip) {
+        const base = `${name}-${ip}`
+          .toLowerCase()
+          .replaceAll(/[^a-z0-9]+/g, "-")
+          .replaceAll(/^-+|-+$/g, "");
+        return base.slice(0, 50) || `server-${Date.now()}`;
+      }
+
+      function showError(msg) {
+        const el = document.getElementById("formError");
+        el.textContent = msg;
+        el.classList.remove("hidden");
+      }
+
+      const form = document.getElementById("submitForm");
+      const fieldName = document.getElementById("fieldName");
+      const fieldIp = document.getElementById("fieldIp");
+      const fieldMode = document.getElementById("fieldMode");
+      const fieldTags = document.getElementById("fieldTags");
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        const name = (fieldName.value || "").trim();
+        const ip = (fieldIp.value || "").trim();
+        const mode = (fieldMode.value || "smp").trim();
+        const tags = normalizeTags(fieldTags.value || "");
+        const bannerUrl = (fieldBanner.value || "").trim();
+        const description = (fieldDesc.value || "").trim();
+        if (!name) return showError("Please enter a server name.");
+        if (!ip) return showError("Please enter a server IP.");
+
+        const storedServers = loadStoredServers();
+        const ipKey = ip.toLowerCase();
+        const already = storedServers.some((s) => String(s.ip || "").toLowerCase() === ipKey);
+        if (already) return showError("That server IP is already listed.");
+
+        const newServer = {
+        name,
+        ip,
+        status: "online",
+        players: null,
+        mode,
+        tags,
+        slug: makeSlug(name, ip),
+        createdAt: Date.now(),
+        bannerUrl,
+        description
+        };
+
+        saveStoredServers([newServer, ...storedServers]);
+
+        window.location.href = "index.html#servers";
+      });
+    </script>
+  </body>
+</html>
