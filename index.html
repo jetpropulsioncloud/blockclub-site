@@ -34,16 +34,16 @@
           </p>
 
           <div class="search">
-            <input type="text" placeholder="Search servers, modes, tags..." />
-            <button type="button">Search</button>
+            <input id="searchInput" type="text" placeholder="Search servers, modes, tags..." />
+            <button id="searchBtn" type="button">Search</button>
           </div>
 
           <div class="quick">
             <span>Popular:</span>
-            <a href="#servers" class="chip">SMP</a>
-            <a href="#servers" class="chip">Economy</a>
-            <a href="#servers" class="chip">Medieval</a>
-            <a href="#servers" class="chip">Modded</a>
+            <a href="#servers" class="chip" data-chip="smp">SMP</a>
+            <a href="#servers" class="chip" data-chip="economy">Economy</a>
+            <a href="#servers" class="chip" data-chip="medieval">Medieval</a>
+            <a href="#servers" class="chip" data-chip="modded">Modded</a>
           </div>
 
           <div class="cta-row">
@@ -107,72 +107,19 @@
     </header>
 
     <main class="wrap">
-      <section id="servers" class="section">
-        <div class="section-head">
-          <h2>Trending servers</h2>
-          <div class="filters">
-            <button class="filter active" type="button">All</button>
-            <button class="filter" type="button">SMP</button>
-            <button class="filter" type="button">Skyblock</button>
-            <button class="filter" type="button">Modded</button>
+        <section id="servers" class="section">
+          <div class="section-head">
+            <h2>Trending servers</h2>
+            <div class="filters">
+              <button class="filter active" type="button" data-filter="all">All</button>
+              <button class="filter" type="button" data-filter="smp">SMP</button>
+              <button class="filter" type="button" data-filter="skyblock">Skyblock</button>
+              <button class="filter" type="button" data-filter="modded">Modded</button>
+            </div>
           </div>
-        </div>
 
-        <div class="grid">
-          <article class="card">
-            <div class="card-top">
-              <div class="server-icon small"></div>
-              <div>
-                <div class="card-title">BlockClub SMP</div>
-                <div class="card-sub">play.mcblockclub.com</div>
-              </div>
-              <div class="right">
-                <div class="status online">Online</div>
-                <div class="muted">24 players</div>
-              </div>
-            </div>
-            <div class="tags">
-              <span class="tag">Survival</span>
-              <span class="tag">Economy</span>
-              <span class="tag">Medieval</span>
-            </div>
-            <div class="card-actions">
-              <a class="btn small" href="#">View</a>
-              <button class="btn small ghost copy" type="button" data-copy="play.mcblockclub.com">Copy IP</button>
-            </div>
-          </article>
-
-          <article class="card">
-            <div class="card-top">
-              <div class="server-icon small"></div>
-              <div>
-                <div class="card-title">Example Network</div>
-                <div class="card-sub">play.example.net</div>
-              </div>
-              <div class="right">
-                <div class="status offline">Offline</div>
-                <div class="muted">—</div>
-              </div>
-            </div>
-            <div class="tags">
-              <span class="tag">Minigames</span>
-              <span class="tag">PvP</span>
-            </div>
-            <div class="card-actions">
-              <a class="btn small" href="#">View</a>
-              <button class="btn small ghost copy" type="button" data-copy="play.example.net">Copy IP</button>
-            </div>
-          </article>
-
-          <article class="card ghost-card">
-            <div class="ghost-inner">
-              <div class="ghost-title">Your server here</div>
-              <div class="muted">Sponsored + organic listings</div>
-              <a class="btn primary" href="#advertise">List a server</a>
-            </div>
-          </article>
-        </div>
-      </section>
+          <div id="serverGrid" class="grid"></div>
+        </section>
 
       <section id="advertise" class="section">
         <div class="section-head">
@@ -237,20 +184,233 @@
       const yearEl = document.getElementById("year");
       yearEl.textContent = String(new Date().getFullYear());
 
-      const copyButtons = document.querySelectorAll("[data-copy]");
-      copyButtons.forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const value = btn.getAttribute("data-copy") || "";
-          try {
-            await navigator.clipboard.writeText(value);
-            const prev = btn.textContent;
-            btn.textContent = "Copied";
-            setTimeout(() => (btn.textContent = prev), 900);
-          } catch (e) {
-            alert("Copy failed. IP: " + value);
-          }
+      const servers = [
+        {
+          name: "BlockClub SMP",
+          ip: "play.mcblockclub.com",
+          status: "online",
+          players: 24,
+          mode: "smp",
+          tags: ["Survival", "Economy", "Guilds", "Medieval"],
+          slug: "blockclub-smp"
+        },
+        {
+          name: "Example Network",
+          ip: "play.example.net",
+          status: "offline",
+          players: null,
+          mode: "modded",
+          tags: ["Minigames", "PvP"],
+          slug: "example-network"
+        },
+        {
+          name: "Sky Isles",
+          ip: "play.skyisles.gg",
+          status: "online",
+          players: 112,
+          mode: "skyblock",
+          tags: ["Skyblock", "Custom Enchants", "PvE"],
+          slug: "sky-isles"
+        }
+      ];
+
+      const serverGrid = document.getElementById("serverGrid");
+      const searchInput = document.getElementById("searchInput");
+      const searchBtn = document.getElementById("searchBtn");
+      const filterButtons = Array.from(document.querySelectorAll(".filter[data-filter]"));
+
+      let activeFilter = "all";
+      let activeQuery = "";
+
+      function escapeHtml(str) {
+        return String(str)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function matchesQuery(server, q) {
+        if (!q) return true;
+        const needle = q.toLowerCase();
+
+        const hay = [
+          server.name,
+          server.ip,
+          server.mode,
+          ...(server.tags || [])
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return hay.includes(needle);
+      }
+
+      function matchesFilter(server, f) {
+        if (!f || f === "all") return true;
+        return String(server.mode).toLowerCase() === f;
+      }
+
+      function renderServers(list) {
+        if (!serverGrid) return;
+
+        if (!list.length) {
+          serverGrid.innerHTML = `
+            <article class="card ghost-card">
+              <div class="ghost-inner">
+                <div class="ghost-title">No servers found</div>
+                <div class="muted">Try a different search or filter.</div>
+                <a class="btn primary" href="#advertise">List a server</a>
+              </div>
+            </article>
+          `;
+          wireCopyButtons();
+          wireViewButtons();
+          return;
+        }
+
+        const html = list
+          .map((s) => {
+            const statusClass = s.status === "online" ? "online" : "offline";
+            const playersText = s.status === "online" && typeof s.players === "number" ? `${s.players} players` : "—";
+
+            const tagsHtml = (s.tags || [])
+              .slice(0, 4)
+              .map((t) => `<span class="tag">${escapeHtml(t)}</span>`)
+              .join("");
+
+            return `
+              <article class="card" data-slug="${escapeHtml(s.slug)}">
+                <div class="card-top">
+                  <div class="server-icon small"></div>
+                  <div>
+                    <div class="card-title">${escapeHtml(s.name)}</div>
+                    <div class="card-sub">${escapeHtml(s.ip)}</div>
+                  </div>
+                  <div class="right">
+                    <div class="status ${statusClass}">${s.status === "online" ? "Online" : "Offline"}</div>
+                    <div class="muted">${escapeHtml(playersText)}</div>
+                  </div>
+                </div>
+
+                <div class="tags">${tagsHtml}</div>
+
+                <div class="card-actions">
+                  <button class="btn small view-btn" type="button" data-view="${escapeHtml(s.slug)}">View</button>
+                  <button class="btn small ghost copy" type="button" data-copy="${escapeHtml(s.ip)}">Copy IP</button>
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+
+        serverGrid.innerHTML = html;
+
+        serverGrid.insertAdjacentHTML(
+          "beforeend",
+          `
+            <article class="card ghost-card">
+              <div class="ghost-inner">
+                <div class="ghost-title">Your server here</div>
+                <div class="muted">Sponsored + organic listings</div>
+                <a class="btn primary" href="#advertise">List a server</a>
+              </div>
+            </article>
+          `
+        );
+
+        wireCopyButtons();
+        wireViewButtons();
+      }
+
+      function wireCopyButtons() {
+        const copyButtons = document.querySelectorAll("[data-copy]");
+        copyButtons.forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const value = btn.getAttribute("data-copy") || "";
+            try {
+              await navigator.clipboard.writeText(value);
+              const prev = btn.textContent;
+              btn.textContent = "Copied";
+              setTimeout(() => (btn.textContent = prev), 900);
+            } catch (e) {
+              alert("Copy failed. IP: " + value);
+            }
+          });
+        });
+      }
+
+      function wireViewButtons() {
+        const viewButtons = document.querySelectorAll("[data-view]");
+        viewButtons.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const slug = btn.getAttribute("data-view") || "";
+            const s = servers.find((x) => x.slug === slug);
+            if (!s) return;
+
+            alert(`${s.name}\n${s.ip}\nMode: ${s.mode}\nStatus: ${s.status}`);
+          });
+        });
+      }
+
+      function applyFilters() {
+        const filtered = servers
+          .filter((s) => matchesFilter(s, activeFilter))
+          .filter((s) => matchesQuery(s, activeQuery));
+
+        renderServers(filtered);
+      }
+
+      filterButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          filterButtons.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+
+          activeFilter = btn.getAttribute("data-filter") || "all";
+          applyFilters();
         });
       });
+
+      function runSearch() {
+        activeQuery = (searchInput?.value || "").trim();
+        applyFilters();
+      }
+
+      searchBtn?.addEventListener("click", runSearch);
+      searchInput?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") runSearch();
+      });
+      const chips = Array.from(document.querySelectorAll(".chip[data-chip]"));
+      function setActiveFilterButton(filterValue) {
+        filterButtons.forEach((b) => b.classList.remove("active"));
+        const btn = filterButtons.find((b) => (b.getAttribute("data-filter") || "all") === filterValue);
+        if (btn) btn.classList.add("active");
+      }
+
+      chips.forEach((chip) => {
+        chip.addEventListener("click", () => {
+          const value = (chip.getAttribute("data-chip") || "").toLowerCase();
+
+          if (value === "smp" || value === "modded" || value === "skyblock") {
+            activeFilter = value;
+            activeQuery = "";
+            if (searchInput) searchInput.value = "";
+            setActiveFilterButton(activeFilter);
+            applyFilters();
+            return;
+          }
+
+          activeFilter = "all";
+          setActiveFilterButton("all");
+
+          if (searchInput) searchInput.value = value;
+          activeQuery = value;
+          applyFilters();
+        });
+      });
+      
+      renderServers(servers);
     </script>
   </body>
 </html>
