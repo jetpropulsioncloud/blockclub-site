@@ -228,13 +228,14 @@
         document.getElementById("notFound").style.display = "block";
       }
 
-        function renderServer(s) {
+      function renderServer(s) {
         document.getElementById("serverPage").style.display = "grid";
 
         const nameEl = document.getElementById("spName");
         const viewsMap = loadViews();
         const views = viewsMap[String(s.slug || "")] || 0;
         document.getElementById("spViewsPill").textContent = `${views} views`;
+
         const ipEl = document.getElementById("spIp");
         const tagsEl = document.getElementById("spTags");
         const descEl = document.getElementById("spDesc");
@@ -249,7 +250,7 @@
         document.getElementById("spModePill").textContent = String(s.mode || "—").toUpperCase();
 
         const playersText =
-            s.status === "online" && typeof s.players === "number" ? `${s.players} players` : "— players";
+          s.status === "online" && typeof s.players === "number" ? `${s.players} players` : "— players";
         document.getElementById("spPlayersPill").textContent = playersText;
 
         const tags = (s.tags || []).slice(0, 10);
@@ -261,43 +262,44 @@
         const coverWrap = document.getElementById("coverWrap");
         const banner = (s.bannerUrl || "").trim();
         if (banner) {
-            coverWrap.innerHTML = `<img src="${escapeHtml(banner)}" alt="Server banner" />`;
+          coverWrap.innerHTML = `<img src="${escapeHtml(banner)}" alt="Server banner" />`;
         } else {
-            coverWrap.innerHTML = `<div class="muted">No banner provided</div>`;
+          coverWrap.innerHTML = `<div class="muted">No banner provided</div>`;
         }
 
         copyBtn.onclick = async () => {
-        const value = s.ip || "";
-            try {
-                await navigator.clipboard.writeText(value);
-                const prev = copyBtn.textContent;
-                copyBtn.textContent = "Copied";
-                setTimeout(() => (copyBtn.textContent = prev), 900);
-            } catch {
-                alert("Copy failed. IP: " + value);
-            }
+          const value = s.ip || "";
+          try {
+            await navigator.clipboard.writeText(value);
+            const prev = copyBtn.textContent;
+            copyBtn.textContent = "Copied";
+            setTimeout(() => (copyBtn.textContent = prev), 900);
+          } catch {
+            alert("Copy failed. IP: " + value);
+          }
+        };
+
+        function paintUpvote() {
+          upvoteBtn.textContent = isUpvoted(s.slug) ? "▲ Upvoted" : "▲ Upvote";
+        }
+
+        paintUpvote();
+
+        upvoteBtn.onclick = () => {
+          toggleUpvote(s.slug);
+          paintUpvote();
+        };
+
+        upvoteBtn.onkeydown = (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleUpvote(s.slug);
+            paintUpvote();
+          }
         };
 
         document.title = `${s.name || "Server"} • BlockClub`;
-        }
-      function paintUpvote() {
-        upvoteBtn.textContent = isUpvoted(s.slug) ? "▲ Upvoted" : "▲ Upvote";
       }
-
-      paintUpvote();
-
-      upvoteBtn.onclick = () => {
-        toggleUpvote(s.slug);
-        paintUpvote();
-      };
-
-      upvoteBtn.onkeydown = (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          toggleUpvote(s.slug);
-          paintUpvote();
-        }
-      };
 
       const slug = getSlugFromUrl();
       const servers = [...baseServers, ...loadStoredServers()];
