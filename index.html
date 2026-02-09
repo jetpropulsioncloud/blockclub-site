@@ -197,7 +197,6 @@
   </div>
     <script>
       const VIEWS_KEY = "bc_views_v1";
-      const UPVOTES_KEY = "bc_upvotes_v1";
       const VIEWED_KEY = "bc_viewed_v1";
       const SORT_KEY = "bc_sort_v1";
       function loadMap(key) {
@@ -242,23 +241,6 @@
         return map[String(slug || "")] || 0;
       }
 
-      function getUpvotedSet() {
-        const map = loadMap(UPVOTES_KEY);
-        return map && typeof map === "object" ? map : {};
-      }
-
-      function toggleUpvote(slug) {
-        const key = String(slug || "");
-        const map = loadMap(UPVOTES_KEY);
-        map[key] = !map[key];
-        saveMap(UPVOTES_KEY, map);
-        return map[key] === true;
-      }
-
-      function countUpvotes(slug) {
-        const map = loadMap(UPVOTES_KEY);
-        return map[String(slug || "")] ? 1 : 0;
-      }
       const yearEl = document.getElementById("year");
       yearEl.textContent = String(new Date().getFullYear());
 
@@ -349,7 +331,6 @@
       function trendingScore(s) {
         const slug = String(s.slug || "");
         const views = getViews(slug);
-        const up = countUpvotes(slug);
 
         const created = typeof s.createdAt === "number" ? s.createdAt : 0;
         const ageHours = created ? (Date.now() - created) / 36e5 : 9999;
@@ -441,16 +422,6 @@
 
                   <button class="btn small ghost copy" type="button" data-copy="${escapeHtml(s.ip)}">Copy IP</button>
 
-                  <button
-                    class="btn small ghost"
-                    type="button"
-                    data-upvote="${escapeHtml(s.slug)}"
-                    ${hasViewed(s.slug) ? "" : "disabled"}
-                    ${hasViewed(s.slug) ? "" : 'title="View the server first to upvote"'}
-                  >
-                    ▲ ${countUpvotes(s.slug) ? "Upvoted" : "Upvote"}
-                  </button>
-
                   <span class="pill-mini">${getViews(s.slug)} views</span>
                 </div>
               </article>
@@ -525,20 +496,6 @@
 
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") closeModal();
-      });
-      document.addEventListener("click", (e) => {
-        const up = e.target.closest("[data-upvote]");
-        if (!up) return;
-
-        const slug = up.getAttribute("data-upvote") || "";
-
-        if (!hasViewed(slug)) {
-          alert("View the server first to upvote.");
-          return;
-        }
-
-        toggleUpvote(slug);
-        applyFilters();
       });
       filterButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
