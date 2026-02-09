@@ -54,6 +54,7 @@
                 <span id="spModePill" class="pill-mini">—</span>
                 <span id="spViewsPill" class="pill-mini">—</span>
                 <span id="spPlayersPill" class="pill-mini">—</span>
+                <span id="spUpvoteBtn" class="pill-mini" role="button" tabindex="0" style="cursor:pointer;">▲ Upvote</span>
                 </div>
 
                 <div id="spTags" class="tags" style="margin-top: 12px;"></div>
@@ -87,6 +88,8 @@
 
     <script>
       const VIEWS_KEY = "bc_views_v1";
+      const VIEWED_KEY = "bc_viewed_v1";
+      const UPVOTES_KEY = "bc_upvotes_v1";
 
         function loadViews() {
         try {
@@ -140,7 +143,61 @@
           slug: "sky-isles"
         }
       ];
+      function loadMap(key) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return {};
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+          return {};
+        }
+      }
 
+      function saveMap(key, map) {
+        localStorage.setItem(key, JSON.stringify(map));
+      }
+
+      function hasViewed(slug) {
+        const map = loadMap(VIEWED_KEY);
+        return map[String(slug || "")] === true;
+      }
+
+      function markViewed(slug) {
+        const map = loadMap(VIEWED_KEY);
+        map[String(slug || "")] = true;
+        saveMap(VIEWED_KEY, map);
+      }
+
+      function bumpViewOnce(slug) {
+        const key = String(slug || "");
+        if (!key) return 0;
+
+        if (hasViewed(key)) {
+          const viewsMap = loadViews();
+          return viewsMap[key] || 0;
+        }
+
+        const viewsMap = loadViews();
+        viewsMap[key] = (viewsMap[key] || 0) + 1;
+        saveViews(viewsMap);
+
+        markViewed(key);
+        return viewsMap[key];
+      }
+
+      function isUpvoted(slug) {
+        const map = loadMap(UPVOTES_KEY);
+        return map[String(slug || "")] === true;
+      }
+
+      function toggleUpvote(slug) {
+        const map = loadMap(UPVOTES_KEY);
+        const key = String(slug || "");
+        map[key] = !map[key];
+        saveMap(UPVOTES_KEY, map);
+        return map[key] === true;
+      }
       function loadStoredServers() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
@@ -181,6 +238,8 @@
         const ipEl = document.getElementById("spIp");
         const tagsEl = document.getElementById("spTags");
         const descEl = document.getElementById("spDesc");
+        const copyBtn = document.getElementById("copyIpBtn");
+        const upvoteBtn = document.getElementById("spUpvoteBtn");
 
         nameEl.textContent = s.name || "—";
         ipEl.textContent = s.ip || "—";
@@ -221,6 +280,24 @@
 
         document.title = `${s.name || "Server"} • BlockClub`;
         }
+      function paintUpvote() {
+        upvoteBtn.textContent = isUpvoted(s.slug) ? "▲ Upvoted" : "▲ Upvote";
+      }
+
+      paintUpvote();
+
+      upvoteBtn.onclick = () => {
+        toggleUpvote(s.slug);
+        paintUpvote();
+      };
+
+      upvoteBtn.onkeydown = (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggleUpvote(s.slug);
+          paintUpvote();
+        }
+      };
 
       const slug = getSlugFromUrl();
       const servers = [...baseServers, ...loadStoredServers()];
@@ -229,7 +306,7 @@
       if (!slug || !server) {
         renderNotFound();
       } else {
-        bumpView(slug);
+        bumpViewOnce(slug);
         renderServer(server);
       }
     </script>
