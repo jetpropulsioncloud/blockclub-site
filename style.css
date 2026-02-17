@@ -843,7 +843,7 @@ button.pill-mini:active {
 }
 
 #userPill {
-  display: inline-flex !important;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
