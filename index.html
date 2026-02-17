@@ -62,7 +62,30 @@
             <button class="copy" type="button" data-copy="play.mcblockclub.com">Copy IP</button>
           </div>
         </div>
+        <div id="authArea">
+          <button id="btnOpenAuth" class="btn">Sign in</button>
+          <div id="userPill" style="display:none;">
+            <span id="userLabel"></span>
+            <button id="btnLogout" class="btn">Log out</button>
+          </div>
+        </div>
 
+        <div id="authModal" style="display:none;">
+          <div class="modalCard">
+            <h2 id="authTitle">Sign in</h2>
+
+            <input id="authIdentifier" placeholder="Email or username" autocomplete="username" />
+            <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" />
+
+            <div style="display:flex; gap:10px; margin-top:10px;">
+              <button id="btnLogin" class="btn">Sign in</button>
+              <button id="btnSwitchToRegister" class="btn">Register</button>
+              <button id="btnCloseAuth" class="btn">Close</button>
+            </div>
+
+            <p id="authMsg" class="muted" style="margin-top:10px;"></p>
+          </div>
+        </div>
         <div class="hero-right">
           <div class="panel">
             <div class="panel-head">
@@ -337,7 +360,7 @@
 
         const recencyBoost = Math.max(0, 48 - ageHours);
 
-        return views * 1 + up * 25 + recencyBoost * 0.25;
+        return views * 1 + recencyBoost * 0.25;
       }
       function sortServers(list) {
         const copy = [...list];
@@ -494,9 +517,6 @@
         applyFilters();
       });
 
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") closeModal();
-      });
       filterButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
           filterButtons.forEach((b) => b.classList.remove("active"));
@@ -550,27 +570,165 @@
       renderServers(servers);
     </script>
     <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-      import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
+      import { auth, db } from "./firebase.js";
+      import {
+        onAuthStateChanged,
+        signInWithEmailAndPassword,
+        createUserWithEmailAndPassword,
+        signOut
+      } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyDTz7T-1LddXftWDXM752WIuNdZidYkipA",
-        authDomain: "blockclub-4742a.firebaseapp.com",
-        projectId: "blockclub-4742a",
-        storageBucket: "blockclub-4742a.firebasestorage.app",
-        messagingSenderId: "584980019040",
-        appId: "1:584980019040:web:7c0c51a002363cb9785005",
-        measurementId: "G-RGY6EXRTEN"
-      };
+      import {
+        doc,
+        getDoc,
+        setDoc,
+        runTransaction,
+        serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-      const app = initializeApp(firebaseConfig);
-      let analytics;
-      try {
-        analytics = getAnalytics(app);
-      } catch (e) {
-        console.log("Analytics not available here.");
+      const elOpen = document.getElementById("btnOpenAuth");
+      const elModal = document.getElementById("authModal");
+      const elClose = document.getElementById("btnCloseAuth");
+      const elLogin = document.getElementById("btnLogin");
+      const elSwitch = document.getElementById("btnSwitchToRegister");
+      const elMsg = document.getElementById("authMsg");
+      const elId = document.getElementById("authIdentifier");
+      const elPw = document.getElementById("authPassword");
+
+      const elUserPill = document.getElementById("userPill");
+      const elUserLabel = document.getElementById("userLabel");
+      const elLogout = document.getElementById("btnLogout");
+
+      let mode = "login";
+
+      function openModal() {
+        elModal.style.display = "block";
+        elMsg.textContent = "";
       }
-      console.log("Firebase connected.");
+
+      function closeModal() {
+        elModal.style.display = "none";
+        elPw.value = "";
+      }
+      
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeModal();
+      });
+
+      function setMode(next) {
+        mode = next;
+        document.getElementById("authTitle").textContent = mode === "login" ? "Sign in" : "Register";
+        elLogin.textContent = mode === "login" ? "Sign in" : "Create account";
+        elSwitch.textContent = mode === "login" ? "Register" : "Back to sign in";
+        elId.placeholder = mode === "login" ? "Email or username" : "Email";
+        elId.autocomplete = mode === "login" ? "username" : "email";
+        elPw.autocomplete = mode === "login" ? "current-password" : "new-password";
+        elMsg.textContent = "";
+      }
+
+      async function usernameToEmail(username) {
+        const u = username.trim().toLowerCase();
+        const snap = await getDoc(doc(db, "usernames", u));
+        if (!snap.exists()) return null;
+        return snap.data().email || null;
+      }
+
+      async function register(email, password, username) {
+        const u = username.trim().toLowerCase();
+        if (u.length < 3) throw new Error("Username must be at least 3 characters.");
+        if (!/^[a-z0-9_]+$/.test(u)) throw new Error("Username can only use letters, numbers, and underscore.");
+
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const uid = cred.user.uid;
+
+        await runTransaction(db, async (tx) => {
+          const unameRef = doc(db, "usernames", u);
+          const unameSnap = await tx.get(unameRef);
+          if (unameSnap.exists()) throw new Error("That username is taken.");
+
+          tx.set(unameRef, { uid, email, createdAt: serverTimestamp() });
+          tx.set(doc(db, "users", uid), {
+            email,
+            username: u,
+            createdAt: serverTimestamp()
+          });
+        });
+
+        return uid;
+      }
+
+      async function login(identifier, password) {
+        const raw = identifier.trim();
+        let email = raw;
+
+        if (!raw.includes("@")) {
+          const resolved = await usernameToEmail(raw);
+          if (!resolved) throw new Error("Username not found.");
+          email = resolved;
+        }
+
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+
+      elOpen?.addEventListener("click", () => {
+        setMode("login");
+        openModal();
+      });
+
+      elClose?.addEventListener("click", closeModal);
+
+      elSwitch?.addEventListener("click", () => {
+        if (mode === "login") {
+          setMode("register");
+          elId.value = "";
+          elPw.value = "";
+          elMsg.textContent = "Register uses email + password + username. Put your email first, then password, then type your username where the email box is after we prompt you.";
+        } else {
+          setMode("login");
+          elMsg.textContent = "";
+        }
+      });
+
+      elLogin?.addEventListener("click", async () => {
+        elMsg.textContent = "";
+        const identifier = elId.value.trim();
+        const password = elPw.value;
+
+        try {
+          if (mode === "login") {
+            await login(identifier, password);
+            closeModal();
+            return;
+          }
+
+          const email = identifier;
+          const username = prompt("Pick a username (letters/numbers/_ only).") || "";
+          await register(email, password, username);
+          closeModal();
+        } catch (e) {
+          elMsg.textContent = e?.message || "Something went wrong.";
+        }
+      });
+
+      elLogout?.addEventListener("click", async () => {
+        await signOut(auth);
+      });
+
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          elOpen.style.display = "inline-block";
+          elUserPill.style.display = "none";
+          return;
+        }
+
+        const snap = await getDoc(doc(db, "users", user.uid));
+        const data = snap.exists() ? snap.data() : null;
+        const label = data?.username ? `@${data.username}` : user.email;
+
+        elUserLabel.textContent = label;
+        elOpen.style.display = "none";
+        elUserPill.style.display = "inline-flex";
+      });
     </script>
   </body>
 </html>
