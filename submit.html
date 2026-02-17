@@ -5,6 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>List a Server • BlockClub</title>
     <link rel="stylesheet" href="style.css" />
+    <style>
+      .auth-card {
+        margin-bottom: 14px;
+      }
+
+      .auth-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .auth-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      .who {
+        font-weight: 800;
+      }
+
+      @media (max-width: 640px) {
+        .auth-row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
   </head>
 
   <body>
@@ -29,11 +58,40 @@
       <section class="section">
         <div class="section-head">
           <h2>List your server</h2>
-          <p class="muted">This will add your server to the BlockClub directory.</p>
+          <p class="muted">You must be signed in to submit a listing.</p>
+        </div>
+
+        <div id="authCard" class="card auth-card">
+          <form id="authForm" class="modal-form">
+            <div class="auth-row">
+              <label class="field">
+                <span class="field-label">Email</span>
+                <input id="authEmail" type="email" placeholder="you@email.com" autocomplete="email" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Password</span>
+                <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" />
+              </label>
+            </div>
+
+            <div class="auth-actions">
+              <button id="btnLogin" type="button" class="btn primary">Sign in</button>
+              <button id="btnRegister" type="button" class="btn">Create account</button>
+              <span class="muted" style="font-weight:700;">No spam. You’ll own your listing.</span>
+            </div>
+
+            <div id="authError" class="form-error hidden"></div>
+          </form>
         </div>
 
         <div class="card">
           <form id="submitForm" class="modal-form">
+            <div class="modal-actions" style="justify-content: space-between;">
+              <div class="who" id="who"></div>
+              <button id="btnLogout" type="button" class="btn ghost hidden">Log out</button>
+            </div>
+
             <label class="field">
               <span class="field-label">Server name</span>
               <input id="fieldName" type="text" placeholder="BlockClub SMP" required />
@@ -43,23 +101,25 @@
               <span class="field-label">Server IP</span>
               <input id="fieldIp" type="text" placeholder="play.example.com" required />
             </label>
+
             <label class="field">
-                <span class="field-label">Banner image URL</span>
-                <input id="fieldBanner" type="url" placeholder="https://..." />
-                <span class="muted" style="font-size:12px;">Tip: use a direct image link (PNG/JPG/WebP).</span>
+              <span class="field-label">Banner image URL</span>
+              <input id="fieldBanner" type="url" placeholder="https://..." />
+              <span class="muted" style="font-size:12px;">Tip: use a direct image link (PNG/JPG/WebP).</span>
             </label>
 
             <div class="cover" style="margin-top: 10px;">
-                <div id="bannerPreview" class="cover-img">
-                    <div class="muted">Banner preview</div>
-                </div>
+              <div id="bannerPreview" class="cover-img">
+                <div class="muted">Banner preview</div>
+              </div>
             </div>
 
             <label class="field" style="margin-top: 12px;">
-                <span class="field-label">Description</span>
-                <textarea id="fieldDesc" rows="5" placeholder="Describe your server like a Fiverr gig: what it is, why it's fun, and who it's for."></textarea>
-                <span id="descCount" class="muted" style="font-size:12px;">0 / 500</span>
+              <span class="field-label">Description</span>
+              <textarea id="fieldDesc" rows="5" placeholder="Describe your server like a Fiverr gig: what it is, why it's fun, and who it's for."></textarea>
+              <span id="descCount" class="muted" style="font-size:12px;">0 / 500</span>
             </label>
+
             <label class="field">
               <span class="field-label">Mode</span>
               <select id="fieldMode" required>
@@ -67,15 +127,6 @@
                 <option value="skyblock">Skyblock</option>
                 <option value="modded">Modded</option>
               </select>
-            <label class="field">
-                <span class="field-label">Banner image URL</span>
-                <input id="fieldBanner" type="url" placeholder="https://..." />
-                <span class="muted" style="font-size:12px;">Tip: use a direct image link (PNG/JPG/WebP).</span>
-            </label>
-
-            <label class="field">
-                <span class="field-label">Description</span>
-                <textarea id="fieldDesc" rows="5" placeholder="Tell players what makes your server special..."></textarea>
             </label>
 
             <label class="field">
@@ -87,68 +138,75 @@
 
             <div class="modal-actions">
               <a class="btn ghost" href="index.html#servers">Cancel</a>
-              <button type="submit" class="btn primary">Submit listing</button>
+              <button id="btnSubmit" type="submit" class="btn primary" disabled>Submit listing</button>
             </div>
           </form>
         </div>
       </section>
     </main>
 
-    <script>
-      const STORAGE_KEY = "bc_servers_v1";
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+      import {
+        getAuth,
+        onAuthStateChanged,
+        signInWithEmailAndPassword,
+        createUserWithEmailAndPassword,
+        signOut
+      } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+      import {
+        getFirestore,
+        collection,
+        addDoc,
+        query,
+        where,
+        getDocs,
+        serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey: "PASTE_YOURS",
+        authDomain: "PASTE_YOURS",
+        projectId: "PASTE_YOURS",
+        storageBucket: "PASTE_YOURS",
+        messagingSenderId: "PASTE_YOURS",
+        appId: "PASTE_YOURS"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+
+      const authCard = document.getElementById("authCard");
+      const authError = document.getElementById("authError");
+      const formError = document.getElementById("formError");
+      const whoEl = document.getElementById("who");
+      const btnLogout = document.getElementById("btnLogout");
+      const btnSubmit = document.getElementById("btnSubmit");
+
+      const authEmail = document.getElementById("authEmail");
+      const authPassword = document.getElementById("authPassword");
+
+      const fieldName = document.getElementById("fieldName");
+      const fieldIp = document.getElementById("fieldIp");
+      const fieldMode = document.getElementById("fieldMode");
+      const fieldTags = document.getElementById("fieldTags");
       const fieldBanner = document.getElementById("fieldBanner");
       const fieldDesc = document.getElementById("fieldDesc");
       const bannerPreview = document.getElementById("bannerPreview");
       const descCount = document.getElementById("descCount");
-      function loadStoredServers() {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (!raw) return [];
-          const parsed = JSON.parse(raw);
-          if (!Array.isArray(parsed)) return [];
-          return parsed;
-        } catch {
-          return [];
-        }
-      }
-      function renderBannerPreview() {
-        const url = (fieldBanner.value || "").trim();
-        if (!bannerPreview) return;
 
-        if (!url) {
-            bannerPreview.innerHTML = `<div class="muted">Banner preview</div>`;
-            return;
-        }
-
-        const safe = url.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
-
-        bannerPreview.innerHTML = `<img src="${safe}" alt="Banner preview" />`;
-        const img = bannerPreview.querySelector("img");
-        img.onerror = () => {
-            bannerPreview.innerHTML = `<div class="muted">Banner failed to load</div>`;
-        };
-        }
-
-        function renderDescCount() {
-        if (!fieldDesc || !descCount) return;
-        const len = (fieldDesc.value || "").length;
-        descCount.textContent = `${len} / 500`;
-        }
-
-        fieldBanner?.addEventListener("input", renderBannerPreview);
-        fieldDesc?.addEventListener("input", () => {
-        if (fieldDesc.value.length > 500) fieldDesc.value = fieldDesc.value.slice(0, 500);
-        renderDescCount();
-        });
-
-        renderBannerPreview();
-        renderDescCount();
-
-      function saveStoredServers(list) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      function showError(el, msg) {
+        el.textContent = msg;
+        el.classList.remove("hidden");
       }
 
-      function normalizeTags(raw) {
+      function clearError(el) {
+        el.textContent = "";
+        el.classList.add("hidden");
+      }
+
+      function cleanTags(raw) {
         const parts = String(raw || "")
           .split(",")
           .map((t) => t.trim())
@@ -163,7 +221,7 @@
             unique.push(t);
           }
         }
-        return unique.slice(0, 6);
+        return unique.slice(0, 8);
       }
 
       function makeSlug(name, ip) {
@@ -171,54 +229,173 @@
           .toLowerCase()
           .replaceAll(/[^a-z0-9]+/g, "-")
           .replaceAll(/^-+|-+$/g, "");
-        return base.slice(0, 50) || `server-${Date.now()}`;
+        return base.slice(0, 60) || `server-${Date.now()}`;
       }
 
-      function showError(msg) {
-        const el = document.getElementById("formError");
-        el.textContent = msg;
-        el.classList.remove("hidden");
+      function renderBannerPreview() {
+        const url = (fieldBanner.value || "").trim();
+        if (!url) {
+          bannerPreview.innerHTML = `<div class="muted">Banner preview</div>`;
+          return;
+        }
+
+        const safe = url
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+
+        bannerPreview.innerHTML = `<img src="${safe}" alt="Banner preview" />`;
+        const img = bannerPreview.querySelector("img");
+        img.onerror = () => {
+          bannerPreview.innerHTML = `<div class="muted">Banner failed to load</div>`;
+        };
       }
 
-      const form = document.getElementById("submitForm");
-      const fieldName = document.getElementById("fieldName");
-      const fieldIp = document.getElementById("fieldIp");
-      const fieldMode = document.getElementById("fieldMode");
-      const fieldTags = document.getElementById("fieldTags");
+      function renderDescCount() {
+        const len = (fieldDesc.value || "").length;
+        descCount.textContent = `${len} / 500`;
+      }
 
-      form.addEventListener("submit", (e) => {
+      fieldBanner.addEventListener("input", renderBannerPreview);
+      fieldDesc.addEventListener("input", () => {
+        if (fieldDesc.value.length > 500) fieldDesc.value = fieldDesc.value.slice(0, 500);
+        renderDescCount();
+      });
+
+      renderBannerPreview();
+      renderDescCount();
+
+      onAuthStateChanged(auth, (user) => {
+        clearError(authError);
+        clearError(formError);
+
+        if (user) {
+          authCard.classList.add("hidden");
+          whoEl.textContent = `Signed in as ${user.email || user.uid}`;
+          btnLogout.classList.remove("hidden");
+          btnSubmit.disabled = false;
+        } else {
+          authCard.classList.remove("hidden");
+          whoEl.textContent = "Not signed in";
+          btnLogout.classList.add("hidden");
+          btnSubmit.disabled = true;
+        }
+      });
+
+      document.getElementById("btnLogin").addEventListener("click", async () => {
+        clearError(authError);
+        const email = String(authEmail.value || "").trim();
+        const password = String(authPassword.value || "");
+        if (!email || !password) {
+          showError(authError, "Enter email and password.");
+          return;
+        }
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+        } catch (e) {
+          showError(authError, e.message || "Sign-in failed.");
+        }
+      });
+
+      document.getElementById("btnRegister").addEventListener("click", async () => {
+        clearError(authError);
+        const email = String(authEmail.value || "").trim();
+        const password = String(authPassword.value || "");
+        if (!email || !password) {
+          showError(authError, "Enter email and password.");
+          return;
+        }
+        if (password.length < 6) {
+          showError(authError, "Password must be at least 6 characters.");
+          return;
+        }
+        try {
+          await createUserWithEmailAndPassword(auth, email, password);
+        } catch (e) {
+          showError(authError, e.message || "Registration failed.");
+        }
+      });
+
+      btnLogout.addEventListener("click", async () => {
+        clearError(formError);
+        try {
+          await signOut(auth);
+        } catch (e) {
+          showError(formError, e.message || "Logout failed.");
+        }
+      });
+
+      async function ipAlreadyListed(ip) {
+        const ipKey = String(ip || "").trim().toLowerCase();
+        if (!ipKey) return false;
+
+        const q = query(collection(db, "servers"), where("ipKey", "==", ipKey));
+        const snap = await getDocs(q);
+        return !snap.empty;
+      }
+
+      document.getElementById("submitForm").addEventListener("submit", async (e) => {
         e.preventDefault();
+        clearError(formError);
 
-        const name = (fieldName.value || "").trim();
-        const ip = (fieldIp.value || "").trim();
-        const mode = (fieldMode.value || "smp").trim();
-        const tags = normalizeTags(fieldTags.value || "");
-        const bannerUrl = (fieldBanner.value || "").trim();
-        const description = (fieldDesc.value || "").trim();
-        if (!name) return showError("Please enter a server name.");
-        if (!ip) return showError("Please enter a server IP.");
+        const user = auth.currentUser;
+        if (!user) {
+          showError(formError, "You must be signed in to submit a server.");
+          return;
+        }
 
-        const storedServers = loadStoredServers();
-        const ipKey = ip.toLowerCase();
-        const already = storedServers.some((s) => String(s.ip || "").toLowerCase() === ipKey);
-        if (already) return showError("That server IP is already listed.");
+        const name = String(fieldName.value || "").trim();
+        const ip = String(fieldIp.value || "").trim();
+        const mode = String(fieldMode.value || "smp").trim();
+        const tags = cleanTags(fieldTags.value || "");
+        const bannerUrl = String(fieldBanner.value || "").trim();
+        const description = String(fieldDesc.value || "").trim();
 
-        const newServer = {
-        name,
-        ip,
-        status: "online",
-        players: null,
-        mode,
-        tags,
-        slug: makeSlug(name, ip),
-        createdAt: Date.now(),
-        bannerUrl,
-        description
+        if (!name) {
+          showError(formError, "Please enter a server name.");
+          return;
+        }
+        if (!ip) {
+          showError(formError, "Please enter a server IP.");
+          return;
+        }
+        if (!description) {
+          showError(formError, "Please add a description.");
+          return;
+        }
+
+        const exists = await ipAlreadyListed(ip);
+        if (exists) {
+          showError(formError, "That server IP is already listed.");
+          return;
+        }
+
+        const docData = {
+          name,
+          ip,
+          ipKey: ip.toLowerCase(),
+          mode,
+          tags,
+          bannerUrl,
+          description,
+          slug: makeSlug(name, ip),
+          status: "unknown",
+          players: null,
+          ownerUid: user.uid,
+          ownerEmail: user.email || "",
+          createdAt: serverTimestamp()
         };
 
-        saveStoredServers([newServer, ...storedServers]);
-
-        window.location.href = "index.html#servers";
+        try {
+          btnSubmit.disabled = true;
+          await addDoc(collection(db, "servers"), docData);
+          window.location.href = "index.html#servers";
+        } catch (e2) {
+          showError(formError, e2.message || "Submit failed.");
+          btnSubmit.disabled = false;
+        }
       });
     </script>
   </body>

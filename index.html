@@ -218,10 +218,17 @@
     <div id="listingModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal></div>
   </div>
-    <script>
+    <script type="module">
+      import { db } from "./firebase.js";
+      import {
+        collection,
+        onSnapshot
+      } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
       const VIEWS_KEY = "bc_views_v1";
       const VIEWED_KEY = "bc_viewed_v1";
       const SORT_KEY = "bc_sort_v1";
+
       function loadMap(key) {
         try {
           const raw = localStorage.getItem(key);
@@ -232,6 +239,7 @@
           return {};
         }
       }
+
       function loadViewedSet() {
         try {
           const raw = localStorage.getItem(VIEWED_KEY);
@@ -250,15 +258,6 @@
         localStorage.setItem(VIEWED_KEY, JSON.stringify(map));
       }
 
-      function hasViewed(slug) {
-        const key = String(slug || "");
-        const map = loadViewedSet();
-        return map[key] === true;
-      }
-      function saveMap(key, map) {
-        localStorage.setItem(key, JSON.stringify(map));
-      }
-
       function getViews(slug) {
         const map = loadMap(VIEWS_KEY);
         return map[String(slug || "")] || 0;
@@ -267,65 +266,19 @@
       const yearEl = document.getElementById("year");
       yearEl.textContent = String(new Date().getFullYear());
 
-      let baseServers = [
-        {
-          name: "BlockClub SMP",
-          ip: "play.mcblockclub.com",
-          status: "online",
-          players: 24,
-          mode: "smp",
-          tags: ["Survival", "Economy", "Guilds", "Medieval"],
-          slug: "blockclub-smp"
-        },
-        {
-          name: "Example Network",
-          ip: "play.example.net",
-          status: "offline",
-          players: null,
-          mode: "modded",
-          tags: ["Minigames", "PvP"],
-          slug: "example-network"
-        },
-        {
-          name: "Sky Isles",
-          ip: "play.skyisles.gg",
-          status: "online",
-          players: 112,
-          mode: "skyblock",
-          tags: ["Skyblock", "Custom Enchants", "PvE"],
-          slug: "sky-isles"
-        }
-      ];
-      const STORAGE_KEY = "bc_servers_v1";
-
-      function loadStoredServers() {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (!raw) return [];
-          const parsed = JSON.parse(raw);
-          if (!Array.isArray(parsed)) return [];
-          return parsed;
-        } catch {
-          return [];
-        }
-      }
-
-      function saveStoredServers(list) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-      }
-
-      let storedServers = loadStoredServers();
-      let servers = [...baseServers, ...storedServers];
       const serverGrid = document.getElementById("serverGrid");
       const searchInput = document.getElementById("searchInput");
       const searchBtn = document.getElementById("searchBtn");
       const filterButtons = Array.from(document.querySelectorAll(".filter[data-filter]"));
       const sortSelect = document.getElementById("sortSelect");
+
       let activeSort = localStorage.getItem(SORT_KEY) || "trending";
       if (sortSelect) sortSelect.value = activeSort;
 
       let activeFilter = "all";
       let activeQuery = "";
+
+      let servers = [];
 
       function escapeHtml(str) {
         return String(str)
@@ -351,23 +304,26 @@
 
         return hay.includes(needle);
       }
+
       function trendingScore(s) {
         const slug = String(s.slug || "");
         const views = getViews(slug);
 
         const created = typeof s.createdAt === "number" ? s.createdAt : 0;
         const ageHours = created ? (Date.now() - created) / 36e5 : 9999;
-
         const recencyBoost = Math.max(0, 48 - ageHours);
 
         return views * 1 + recencyBoost * 0.25;
       }
+
       function sortServers(list) {
         const copy = [...list];
+
         if (activeSort === "trending") {
           copy.sort((a, b) => trendingScore(b) - trendingScore(a));
           return copy;
         }
+
         if (activeSort === "players") {
           copy.sort((a, b) => {
             const ap = typeof a.players === "number" ? a.players : -1;
@@ -393,6 +349,7 @@
 
         return copy;
       }
+
       function matchesFilter(server, f) {
         if (!f || f === "all") return true;
         return String(server.mode).toLowerCase() === f;
@@ -417,7 +374,10 @@
         const html = list
           .map((s) => {
             const statusClass = s.status === "online" ? "online" : "offline";
-            const playersText = s.status === "online" && typeof s.players === "number" ? `${s.players} players` : "—";
+            const playersText =
+              s.status === "online" && typeof s.players === "number"
+                ? `${s.players} players`
+                : "—";
 
             const tagsHtml = (s.tags || [])
               .slice(0, 4)
@@ -433,7 +393,9 @@
                     <div class="card-sub">${escapeHtml(s.ip)}</div>
                   </div>
                   <div class="right">
-                    <div class="status ${statusClass}">${s.status === "online" ? "Online" : "Offline"}</div>
+                    <div class="status ${statusClass}">
+                      ${s.status === "online" ? "Online" : "Offline"}
+                    </div>
                     <div class="muted">${escapeHtml(playersText)}</div>
                   </div>
                 </div>
@@ -442,9 +404,7 @@
 
                 <div class="card-actions">
                   <button class="btn small view-btn" type="button" data-view="${escapeHtml(s.slug)}">View</button>
-
                   <button class="btn small ghost copy" type="button" data-copy="${escapeHtml(s.ip)}">Copy IP</button>
-
                   <span class="pill-mini">${getViews(s.slug)} views</span>
                 </div>
               </article>
@@ -497,7 +457,6 @@
             if (!s) return;
 
             markViewed(s.slug);
-
             window.location.href = `server.html?slug=${encodeURIComponent(s.slug)}`;
           });
         });
@@ -511,6 +470,7 @@
         const sorted = sortServers(filtered);
         renderServers(sorted);
       }
+
       sortSelect?.addEventListener("change", () => {
         activeSort = sortSelect.value || "trending";
         localStorage.setItem(SORT_KEY, activeSort);
@@ -536,7 +496,9 @@
       searchInput?.addEventListener("keydown", (e) => {
         if (e.key === "Enter") runSearch();
       });
+
       const chips = Array.from(document.querySelectorAll(".chip[data-chip]"));
+
       function setActiveFilterButton(filterValue) {
         filterButtons.forEach((b) => b.classList.remove("active"));
         const btn = filterButtons.find((b) => (b.getAttribute("data-filter") || "all") === filterValue);
@@ -567,7 +529,61 @@
         });
       });
 
-      renderServers(servers);
+      function toMillisMaybe(ts) {
+        if (!ts) return 0;
+        if (typeof ts === "number") return ts;
+        if (typeof ts.toMillis === "function") return ts.toMillis();
+        return 0;
+      }
+
+      function normalizeServer(docId, data) {
+        const name = String(data?.name || "").trim();
+        const ip = String(data?.ip || "").trim();
+        const mode = String(data?.mode || "smp").trim().toLowerCase();
+        const tags = Array.isArray(data?.tags) ? data.tags : [];
+        const slug = String(data?.slug || docId || "").trim();
+
+        return {
+          name,
+          ip,
+          mode,
+          tags,
+          slug,
+          status: String(data?.status || "unknown").toLowerCase(),
+          players: typeof data?.players === "number" ? data.players : null,
+          createdAt: toMillisMaybe(data?.createdAt)
+        };
+      }
+
+      serverGrid.innerHTML = `
+        <article class="card ghost-card">
+          <div class="ghost-inner">
+            <div class="ghost-title">Loading servers…</div>
+            <div class="muted">Pulling listings from the database.</div>
+          </div>
+        </article>
+      `;
+
+      onSnapshot(
+        collection(db, "servers"),
+        (snap) => {
+          servers = snap.docs
+            .map((d) => normalizeServer(d.id, d.data()))
+            .filter((s) => s.name && s.ip && s.slug);
+
+          applyFilters();
+        },
+        () => {
+          serverGrid.innerHTML = `
+            <article class="card ghost-card">
+              <div class="ghost-inner">
+                <div class="ghost-title">Couldn’t load servers</div>
+                <div class="muted">Check Firebase config and Firestore rules.</div>
+              </div>
+            </article>
+          `;
+        }
+      );
     </script>
     <script type="module">
       import { auth, db } from "./firebase.js";
