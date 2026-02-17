@@ -714,10 +714,22 @@
         await signOut(auth);
       });
 
+      function setAuthUI(user, label = "") {
+        if (!user) {
+          elOpen.style.display = "inline-flex";
+          elUserPill.style.display = "none";
+          elUserLabel.textContent = "";
+          return;
+        }
+
+        elOpen.style.display = "none";
+        elUserPill.style.display = "inline-flex";
+        elUserLabel.textContent = label;
+      }
+
       onAuthStateChanged(auth, async (user) => {
         if (!user) {
-          elOpen.style.display = "inline-block";
-          elUserPill.style.display = "none";
+          setAuthUI(null);
           return;
         }
 
@@ -725,9 +737,7 @@
         const data = snap.exists() ? snap.data() : null;
         const label = data?.username ? `@${data.username}` : user.email;
 
-        elUserLabel.textContent = label;
-        elOpen.style.display = "none";
-        elUserPill.style.display = "inline-flex";
+        setAuthUI(user, label);
       });
     </script>
   </body>
