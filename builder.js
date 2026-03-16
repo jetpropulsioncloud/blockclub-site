@@ -3,12 +3,13 @@ let fb = null;
 async function loadFirebase() {
   if (fb) return fb;
 
-  const firestore = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
-  const storage = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js");
+  const firestore = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+  const storage = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js");
 
   fb = { firestore, storage };
   return fb;
 }
+console.log("BUILDER VERSION CHECK - newest file loaded");
 const LS_KEY = "bc_builder_state_v1";
 const LAST_SERVER_ID_KEY = "bc_last_server_id";
 
@@ -345,7 +346,7 @@ function buildPublishPayload() {
 }
 async function publishToFirebase(payload) {
   const { firestore, storage } = await loadFirebase();
-  const { collection, doc, setDoc, getDoc, serverTimestamp } = firestore;
+  const { doc, setDoc, getDoc, serverTimestamp } = firestore;
   const { ref } = storage;
 
   const db = window.bcDb;
@@ -368,7 +369,10 @@ async function publishToFirebase(payload) {
 
   const routedServerId = serverIdFromUrl || localStorage.getItem(LAST_SERVER_ID_KEY);
   const isNew = !routedServerId;
-
+  console.log("bcDb value:", window.bcDb);
+  console.log("bcStorage value:", window.bcStorage);
+  console.log("bcAuth value:", window.bcAuth);
+  console.log("db constructor:", window.bcDb?.constructor?.name);
   const serverRef = isNew
     ? doc(db, "servers", crypto.randomUUID())
     : doc(db, "servers", routedServerId);
@@ -1273,6 +1277,8 @@ publishBtn.addEventListener("click", async () => {
 
       alert(`Published! serverId: ${result.serverId}`);
     } catch (err) {
+      console.error("PUBLISH ERROR FULL:", err);
+      console.error("PUBLISH ERROR STACK:", err?.stack);
       alert(String(err?.message || err));
     }
 });
