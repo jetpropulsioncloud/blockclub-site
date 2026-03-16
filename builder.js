@@ -345,7 +345,7 @@ function buildPublishPayload() {
 }
 async function publishToFirebase(payload) {
   const { firestore, storage } = await loadFirebase();
-  const { collection, doc, setDoc, serverTimestamp } = firestore;
+  const { collection, doc, setDoc, getDoc, serverTimestamp } = firestore;
   const { ref } = storage;
 
   const db = window.bcDb;
@@ -367,12 +367,13 @@ async function publishToFirebase(payload) {
   }
 
   const routedServerId = serverIdFromUrl || localStorage.getItem(LAST_SERVER_ID_KEY);
+  const isNew = !routedServerId;
 
-  const serverRef = routedServerId
-    ? doc(db, "servers", routedServerId)
-    : doc(collection(db, "servers"));
+  const serverRef = isNew
+    ? doc(db, "servers", crypto.randomUUID())
+    : doc(db, "servers", routedServerId);
+
   if (!isNew) {
-    const { getDoc } = firestore;
     const existingSnap = await getDoc(serverRef);
 
     if (!existingSnap.exists()) {
@@ -386,8 +387,8 @@ async function publishToFirebase(payload) {
       throw new Error("You cannot publish changes to a server you do not own.");
     }
   }
+
   const serverId = serverRef.id;
-  const isNew = !routedServerId;
 
   let bannerUrl = "";
   const nextBlocks = [];
@@ -464,6 +465,7 @@ async function publishToFirebase(payload) {
     decorations: payload.decorations || [],
     updatedAt: serverTimestamp()
   }, { merge: true });
+
   localStorage.setItem(LAST_SERVER_ID_KEY, serverId);
   replaceUrlServerId(serverId);
 
@@ -822,7 +824,14 @@ function renderDeco(d) {
 
   decoLayer.appendChild(el);
 }
-
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 function setupDrag(containerEl, handleEl, item, kind) {
   handleEl.addEventListener("pointerdown", (e) => {
     if (e.target.closest(".deco-resize")) return;
