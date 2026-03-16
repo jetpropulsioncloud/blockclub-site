@@ -146,36 +146,21 @@
     </main>
 
     <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+      import { auth, db } from "./firebase.js";
       import {
-        getAuth,
         onAuthStateChanged,
         signInWithEmailAndPassword,
         createUserWithEmailAndPassword,
         signOut
-      } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+      } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
       import {
-        getFirestore,
         collection,
         addDoc,
         query,
         where,
         getDocs,
         serverTimestamp
-      } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-
-      const firebaseConfig = {
-        apiKey: "PASTE_YOURS",
-        authDomain: "PASTE_YOURS",
-        projectId: "PASTE_YOURS",
-        storageBucket: "PASTE_YOURS",
-        messagingSenderId: "PASTE_YOURS",
-        appId: "PASTE_YOURS"
-      };
-
-      const app = initializeApp(firebaseConfig);
-      const auth = getAuth(app);
-      const db = getFirestore(app);
+      } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
       const authCard = document.getElementById("authCard");
       const authError = document.getElementById("authError");
@@ -385,7 +370,11 @@
           players: null,
           ownerUid: user.uid,
           ownerEmail: user.email || "",
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
+          isPublished: false,
+          pagePublishedAt: null,
+          views: 0,
+          upvotes: 0
         };
 
         try {

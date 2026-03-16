@@ -225,43 +225,6 @@
         onSnapshot
       } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-      const VIEWS_KEY = "bc_views_v1";
-      const VIEWED_KEY = "bc_viewed_v1";
-      const SORT_KEY = "bc_sort_v1";
-
-      function loadMap(key) {
-        try {
-          const raw = localStorage.getItem(key);
-          if (!raw) return {};
-          const parsed = JSON.parse(raw);
-          return parsed && typeof parsed === "object" ? parsed : {};
-        } catch {
-          return {};
-        }
-      }
-
-      function loadViewedSet() {
-        try {
-          const raw = localStorage.getItem(VIEWED_KEY);
-          if (!raw) return {};
-          const parsed = JSON.parse(raw);
-          return parsed && typeof parsed === "object" ? parsed : {};
-        } catch {
-          return {};
-        }
-      }
-
-      function markViewed(slug) {
-        const key = String(slug || "");
-        const map = loadViewedSet();
-        map[key] = true;
-        localStorage.setItem(VIEWED_KEY, JSON.stringify(map));
-      }
-
-      function getViews(slug) {
-        const map = loadMap(VIEWS_KEY);
-        return map[String(slug || "")] || 0;
-      }
 
       const yearEl = document.getElementById("year");
       yearEl.textContent = String(new Date().getFullYear());
@@ -306,8 +269,7 @@
       }
 
       function trendingScore(s) {
-        const slug = String(s.slug || "");
-        const views = getViews(slug);
+        const views = typeof s.views === "number" ? s.views : 0;
 
         const created = typeof s.createdAt === "number" ? s.createdAt : 0;
         const ageHours = created ? (Date.now() - created) / 36e5 : 9999;
@@ -403,9 +365,9 @@
                 <div class="tags">${tagsHtml}</div>
 
                 <div class="card-actions">
-                  <button class="btn small view-btn" type="button" data-view="${escapeHtml(s.slug)}">View</button>
+                  <button class="btn small view-btn" type="button" data-view="${escapeHtml(s.id)}">View</button>
                   <button class="btn small ghost copy" type="button" data-copy="${escapeHtml(s.ip)}">Copy IP</button>
-                  <span class="pill-mini">${getViews(s.slug)} views</span>
+                  <span class="pill-mini">${Number(s.views || 0).toLocaleString()} views</span>
                 </div>
               </article>
             `;
@@ -449,15 +411,14 @@
       }
 
       function wireViewButtons() {
-        const viewButtons = document.querySelectorAll("[data-view]");
+        const viewButtons = document.querySelectorAll("[data-view-id]");
         viewButtons.forEach((btn) => {
           btn.addEventListener("click", () => {
-            const slug = btn.getAttribute("data-view") || "";
-            const s = servers.find((x) => x.slug === slug);
+            const serverId = btn.getAttribute("data-view-id") || "";
+            const s = servers.find((x) => x.id === serverId);
             if (!s) return;
 
-            markViewed(s.slug);
-            window.location.href = `server.html?slug=${encodeURIComponent(s.slug)}`;
+            window.location.href = `server.html?id=${encodeURIComponent(serverId)}`;
           });
         });
       }
@@ -544,6 +505,7 @@
         const slug = String(data?.slug || docId || "").trim();
 
         return {
+          id: docId,
           name,
           ip,
           mode,
@@ -551,7 +513,10 @@
           slug,
           status: String(data?.status || "unknown").toLowerCase(),
           players: typeof data?.players === "number" ? data.players : null,
-          createdAt: toMillisMaybe(data?.createdAt)
+          createdAt: toMillisMaybe(data?.createdAt),
+          isPublished: data?.isPublished === true,
+          views: typeof data?.views === "number" ? data.views : 0,
+          upvotes: typeof data?.upvotes === "number" ? data.upvotes : 0
         };
       }
 
@@ -568,7 +533,14 @@
         collection(db, "servers"),
         (snap) => {
           servers = snap.docs
-            .map((d) => normalizeServer(d.id, d.data()))
+            .map((d) => {
+              const data = d.data();
+              return {
+                ...normalizeServer(d.id, data),
+                isPublished: data?.isPublished === true
+              };
+            })
+            .filter((s) => s.isPublished)
             .filter((s) => s.name && s.ip && s.slug);
 
           applyFilters();

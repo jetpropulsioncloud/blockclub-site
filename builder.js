@@ -371,7 +371,21 @@ async function publishToFirebase(payload) {
   const serverRef = routedServerId
     ? doc(db, "servers", routedServerId)
     : doc(collection(db, "servers"));
+  if (!isNew) {
+    const { getDoc } = firestore;
+    const existingSnap = await getDoc(serverRef);
 
+    if (!existingSnap.exists()) {
+      throw new Error("Server not found.");
+    }
+
+    const existing = existingSnap.data() || {};
+    const currentUid = window.bcAuth?.currentUser?.uid || null;
+
+    if (!currentUid || existing.ownerUid !== currentUid) {
+      throw new Error("You cannot publish changes to a server you do not own.");
+    }
+  }
   const serverId = serverRef.id;
   const isNew = !routedServerId;
 
@@ -1066,6 +1080,11 @@ async function loadServerPageFromFirebase(serverId) {
   }
 
   const serverData = serverSnap.data() || {};
+  const currentUid = window.bcAuth?.currentUser?.uid || null;
+
+  if (serverData.ownerUid && currentUid && serverData.ownerUid !== currentUid) {
+    throw new Error("You do not own this server page.");
+  }
   const pageData = pageSnap.exists() ? pageSnap.data() || {} : {};
 
   const nameEl = document.getElementById("serverNameInput");

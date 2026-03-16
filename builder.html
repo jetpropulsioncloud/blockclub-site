@@ -120,28 +120,17 @@
     </dialog>
 
     <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-      import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-      import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-      import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
-
-      const firebaseConfig = {
-        apiKey: "PASTE",
-        authDomain: "PASTE",
-        projectId: "PASTE",
-        storageBucket: "PASTE",
-        messagingSenderId: "PASTE",
-        appId: "PASTE"
-      };
-
-      const app = initializeApp(firebaseConfig);
+      import { app, auth, db, storage } from "./firebase.js";
+      import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
       window.bcApp = app;
-      window.bcAuth = getAuth(app);
-      window.bcDb = getFirestore(app);
-      window.bcStorage = getStorage(app);
+      window.bcAuth = auth;
+      window.bcDb = db;
+      window.bcStorage = storage;
 
-      await signInAnonymously(window.bcAuth);
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
     </script>
 
     <script src="builder.js"></script>
