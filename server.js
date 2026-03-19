@@ -1,24 +1,34 @@
-import { db } from "./firebase.js";
+import { auth, db } from "./firebase.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { doc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const GRID = {
+const GRID = {  
   columns: 12,
   width: 1120,
   rowHeight: 56,
   gap: 12,
   padding: 14
 };
+
 const params = new URLSearchParams(window.location.search);
-const serverId = params.get("id");
+const serverId = params.get("serverId") || params.get("id");
+const previewMode = params.get("preview") === "1";
 
 const els = {
-  canvas: document.getElementById("canvas"),
-  note: document.getElementById("note"),
-  serverName: document.getElementById("serverName"),
-  serverIp: document.getElementById("serverIp"),
-  viewsPill: document.getElementById("viewsPill"),
-  upvotesPill: document.getElementById("upvotesPill"),
-  statusPill: document.getElementById("statusPill")
+  serverPage: document.getElementById("serverPage"),  
+  notFound: document.getElementById("notFound"),
+  coverWrap: document.getElementById("coverWrap"),
+  spName: document.getElementById("spName"),
+  spIp: document.getElementById("spIp"),
+  copyIpBtn: document.getElementById("copyIpBtn"),
+  spStatusPill: document.getElementById("spStatusPill"),
+  spModePill: document.getElementById("spModePill"),
+  spViewsPill: document.getElementById("spViewsPill"),
+  spPlayersPill: document.getElementById("spPlayersPill"),
+  spUpvotesPill: document.getElementById("spUpvotesPill"),
+  spTags: document.getElementById("spTags"),
+  spDesc: document.getElementById("spDesc"),
+  pageCanvas: document.getElementById("pageCanvas")
 };
 
 function escapeHtml(value) {
@@ -157,51 +167,121 @@ function renderDecoration(d) {
   return el;
 }
 
-function renderPage(serverData, pageData) {
-  els.serverName.textContent = serverData.name || "Untitled Server";
-  els.serverIp.textContent = serverData.ip || "No IP listed";
-  els.viewsPill.textContent = `${Number(serverData.views || 0).toLocaleString()} views`;
-  els.upvotesPill.textContent = `${Number(serverData.upvotes || 0).toLocaleString()} upvotes`;
-  els.statusPill.textContent = serverData.isPublished ? "Published" : "Draft";
+function showNotFound(message = "That server could not be found.") {
+  if (els.serverPage) els.serverPage.style.display = "none";
+  if (els.notFound) {
+    els.notFound.hidden = false;
+    const p = els.notFound.querySelector("p");
+    if (p) p.textContent = message;
+  }
+}
+
+function showServerPage() {
+  if (els.serverPage) els.serverPage.style.display = "";
+  if (els.notFound) els.notFound.hidden = true;
+}
+
+function wireCopyIp(ip) {
+  if (!els.copyIpBtn) return;
+
+  const btn = els.copyIpBtn;
+  btn.replaceWith(btn.cloneNode(true));
+  els.copyIpBtn = document.getElementById("copyIpBtn");
+
+  els.copyIpBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(ip || "");
+      const prev = els.copyIpBtn.textContent;
+      els.copyIpBtn.textContent = "Copied";
+      setTimeout(() => {
+        els.copyIpBtn.textContent = prev;
+      }, 900);
+    } catch (err) {
+      alert("Copy failed. IP: " + (ip || ""));
+    }
+  });
+}
+
+function renderBanner(serverData) {
+  if (!els.coverWrap) return;
+
+  const bannerUrl = String(serverData.bannerUrl || serverData.coverUrl || "").trim();
+  if (!bannerUrl) {
+    els.coverWrap.innerHTML = "";
+    return;
+  }
+
+  els.coverWrap.innerHTML = `
+    <img
+      src="${escapeHtml(bannerUrl)}"
+      alt="${escapeHtml(serverData.name || "Server banner")}"
+      class="server-cover-img"
+    />
+  `;
+}
+
+function renderTags(tags) {
+  if (!els.spTags) return;
+  const safeTags = Array.isArray(tags) ? tags : [];
+
+  if (!safeTags.length) {
+    els.spTags.innerHTML = "";
+    return;
+  }
+
+  els.spTags.innerHTML = safeTags
+    .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
+    .join("");
+}
+
+function renderPublishedPage(pageData) {
+  if (!els.pageCanvas) return;
 
   const blocks = Array.isArray(pageData.blocks) ? pageData.blocks : [];
   const decorations = Array.isArray(pageData.decorations) ? pageData.decorations : [];
 
-  els.note.textContent = `Viewing published page for ${serverData.name || "this server"}.`;
-  els.canvas.innerHTML = "";
-  els.canvas.style.minHeight = `${canvasHeightFromBlocks(blocks, decorations)}px`;
+  els.pageCanvas.innerHTML = "";
+  els.pageCanvas.style.minHeight = `${canvasHeightFromBlocks(blocks, decorations)}px`;
 
   for (const b of blocks) {
-    els.canvas.appendChild(renderBlock(b));
+    els.pageCanvas.appendChild(renderBlock(b));
   }
 
   for (const d of decorations) {
-    els.canvas.appendChild(renderDecoration(d));
+    els.pageCanvas.appendChild(renderDecoration(d));
   }
 }
 
-function renderError(message) {
-  document.body.innerHTML = `
-    <div class="topbar">
-      <div class="wrap topbar-inner">
-        <div class="brand">
-          <div class="logo-mark"></div>
-          <div class="logo-text">BlockClub</div>
-        </div>
-      </div>
-    </div>
-    <main class="wrap">
-      <div class="error-box">
-        <h2>Could not load server page</h2>
-        <p>${escapeHtml(message)}</p>
-      </div>
-    </main>
-  `;
+function renderServer(serverData, pageData) {
+  const name = serverData.name || "Untitled Server";
+  const ip = serverData.ip || "No IP listed";
+  const status = serverData.status || (serverData.isPublished ? "published" : "draft");
+  const mode = serverData.mode || "smp";
+  const views = Number(serverData.views || 0);
+  const upvotes = Number(serverData.upvotes || 0);
+  const players =
+    typeof serverData.players === "number" ? `${serverData.players} players` : "—";
+
+  document.title = `${name} | BlockClub`;
+
+  if (els.spName) els.spName.textContent = name;
+  if (els.spIp) els.spIp.textContent = ip;
+  if (els.spStatusPill) els.spStatusPill.textContent = status;
+  if (els.spModePill) els.spModePill.textContent = mode;
+  if (els.spViewsPill) els.spViewsPill.textContent = `${views.toLocaleString()} views`;
+  if (els.spPlayersPill) els.spPlayersPill.textContent = players;
+  if (els.spUpvotesPill) els.spUpvotesPill.textContent = `${upvotes.toLocaleString()} upvotes`;
+  if (els.spDesc) els.spDesc.textContent = serverData.description || "No description yet.";
+
+  renderBanner(serverData);
+  renderTags(serverData.tags);
+  renderPublishedPage(pageData);
+  wireCopyIp(serverData.ip || "");
 }
 
-async function loadServerPage() {
+async function loadServerPage(currentUser) {
   if (!serverId) {
-    renderError("Missing server id in the URL. Use server.html?id=YOUR_SERVER_ID");
+    showNotFound("Missing serverId in the URL.");
     return;
   }
 
@@ -214,28 +294,41 @@ async function loadServerPage() {
   ]);
 
   if (!serverSnap.exists()) {
-    renderError("That server page does not exist.");
+    showNotFound("That server page does not exist.");
     return;
   }
 
-  const serverData = serverSnap.data() || {};
+    const serverData = serverSnap.data() || {};
+    const isPublished = !!serverData.isPublished;
+    const isOwner = !!currentUser && serverData.ownerUid === currentUser.uid;
 
-  if (!serverData.isPublished) {
-    renderError("This server page is not published yet.");
-    return;
-  }
+    if (!isPublished && !(previewMode && isOwner)) {
+      showNotFound("This server page is not published.");
+      return;
+    }
 
-  await updateDoc(serverRef, {
-    views: increment(1)
-  });
+    const pageData = pageSnap.exists()
+      ? pageSnap.data() || {}
+      : { blocks: [], decorations: [] };
 
-  serverData.views = Number(serverData.views || 0) + 1;
+    if (isPublished && !previewMode) {
+      try {
+        await updateDoc(serverRef, {
+          views: increment(1)
+        });
+        serverData.views = Number(serverData.views || 0) + 1;
+      } catch (err) {
+        console.error("Failed to increment views:", err);
+      }
+    }
 
-  const pageData = pageSnap.exists() ? pageSnap.data() || {} : { blocks: [], decorations: [] };
-  renderPage(serverData, pageData);
+    showServerPage();
+    renderServer(serverData, pageData);
 }
 
-loadServerPage().catch((err) => {
-  console.error(err);
-  renderError(err.message || "Unknown error while loading the page.");
+onAuthStateChanged(auth, (user) => {
+  loadServerPage(user).catch((err) => {
+    console.error(err);
+    showNotFound(err.message || "Unknown error while loading the page.");
+  });
 });

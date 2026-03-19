@@ -21,7 +21,17 @@
           <a href="#discord">Discord</a>
         </nav>
 
-        <a class="pill" href="#">List a server</a>
+        <div id="serverOwnerActions" class="owner-actions">
+          <a id="listServerBtn" class="pill" href="#">List a Server</a>
+
+          <a id="viewServerBtn" class="pill" href="#" style="display:none;">View Your Server</a>
+
+          <a id="editServerBtn" class="pill" href="#" style="display:none;">Edit Server</a>
+
+          <button id="deleteServerBtn" class="pill" type="button" style="display:none;">
+            Delete Server
+          </button>
+        </div>
       </div>
     </div>
 
@@ -267,21 +277,15 @@
 
         return hay.includes(needle);
       }
-      document.querySelectorAll(".list-server-btn").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          e.preventDefault();
-
-          const user = auth.currentUser;
-
-          if (!user) {
-            alert("You must be signed in to list a server.");
+      function wireListServerButtons() {
+        const buttons = document.querySelectorAll(".list-server-btn");
+        buttons.forEach((btn) => {
+          btn.onclick = (e) => {
+            e.preventDefault();
             document.getElementById("btnOpenAuth")?.click();
-            return;
-          }
-
-          window.location.href = "builder.html";
+          };
         });
-      });
+      }
       function trendingScore(s) {
         const views = typeof s.views === "number" ? s.views : 0;
 
@@ -425,14 +429,13 @@
       }
 
       function wireViewButtons() {
-        const viewButtons = document.querySelectorAll("[data-view-id]");
+        const viewButtons = document.querySelectorAll("[data-view]");
         viewButtons.forEach((btn) => {
           btn.addEventListener("click", () => {
-            const serverId = btn.getAttribute("data-view-id") || "";
-            const s = servers.find((x) => x.id === serverId);
-            if (!s) return;
+            const serverId = btn.getAttribute("data-view") || "";
+            if (!serverId) return;
 
-            window.location.href = `server.html?id=${encodeURIComponent(serverId)}`;
+            window.location.href = `server.html?serverId=${encodeURIComponent(serverId)}`;
           });
         });
       }
@@ -599,29 +602,15 @@
       const elMsg = document.getElementById("authMsg");
       const elId = document.getElementById("authIdentifier");
       const elPw = document.getElementById("authPassword");
+      const elListServer = document.getElementById("listServerBtn");
+      const elViewServer = document.getElementById("viewServerBtn");
+      const elEditServer = document.getElementById("editServerBtn");
+      const elDeleteServer = document.getElementById("deleteServerBtn");
 
       const elUserPill = document.getElementById("userPill");
       const elUserLabel = document.getElementById("userLabel");
       const elLogout = document.getElementById("btnLogout");
-      const elListServerBtn = document.getElementById("listServerBtn");
-
       let mode = "login";
-      const listServerBtn = document.getElementById("listServerBtn");
-
-      listServerBtn?.addEventListener("click", (e) => {
-        e.preventDefault();
-
-        const user = auth.currentUser;
-
-        if (!user) {
-          alert("You must be signed in to list a server.");
-          document.getElementById("btnOpenAuth")?.click();
-          return;
-        }
-
-        window.location.href = "builder.html";
-      });
-
       function openModal() {
         elModal.style.display = "block";
         elMsg.textContent = "";
@@ -734,27 +723,6 @@
       elLogout?.addEventListener("click", async () => {
         await signOut(auth);
       });
-      function setListServerButton({ user = null, serverId = null } = {}) {
-        if (!elListServerBtn) return;
-
-        elListServerBtn.onclick = null;
-
-        if (!user) {
-          elListServerBtn.textContent = "List a server";
-          elListServerBtn.href = "#";
-          elListServerBtn.addEventListener("click", handleListServerGuestClick, { once: true });
-          return;
-        }
-
-        if (serverId) {
-          elListServerBtn.textContent = "Edit your server";
-          elListServerBtn.href = `builder.html?serverId=${encodeURIComponent(serverId)}`;
-          return;
-        }
-
-        elListServerBtn.textContent = "Create your server";
-        elListServerBtn.href = "builder.html";
-      }
 
       function handleListServerGuestClick(e) {
         e.preventDefault();
@@ -774,32 +742,98 @@
         elUserPill.style.display = "inline-flex";
         elUserLabel.textContent = label;
       }
-
-      onAuthStateChanged(auth, async (user) => {
-        if (!user) {
-          setAuthUI(null);
-          setListServerButton();
+      function setServerOwnerActions({ user = null, serverId = null } = {}) {
+        if (!elListServer || !elViewServer || !elEditServer || !elDeleteServer) {
+          console.error("One or more server action elements are missing");
           return;
         }
 
-        const snap = await getDoc(doc(db, "users", user.uid));
-        const data = snap.exists() ? snap.data() : null;
-        const label = data?.username ? `@${data.username}` : user.email;
+        if (!user) {
+          elListServer.style.display = "inline-flex";
+          elViewServer.style.display = "none";
+          elEditServer.style.display = "none";
+          elDeleteServer.style.display = "none";
 
-        setAuthUI(user, label);
+          elListServer.onclick = (e) => {
+            e.preventDefault();
+            setMode("login");
+            openModal();
+            elMsg.textContent = "You must be signed in to list a server.";
+          };
+          return;
+        }
 
-        const ownedServersQuery = query(
-          collection(db, "servers"),
-          where("ownerUid", "==", user.uid)
-        );
+        if (!serverId) {
+          elListServer.style.display = "inline-flex";
+          elViewServer.style.display = "none";
+          elEditServer.style.display = "none";
+          elDeleteServer.style.display = "none";
 
-        const ownedServersSnap = await getDocs(ownedServersQuery);
-        const ownedServerId = ownedServersSnap.empty ? null : ownedServersSnap.docs[0].id;
+          elListServer.onclick = (e) => {
+            e.preventDefault();
+            window.location.href = "builder.html";
+          };
+          return;
+        }
 
-        setListServerButton({
-          user,
-          serverId: ownedServerId
-        });
+        elListServer.style.display = "none";
+        elViewServer.style.display = "inline-flex";
+        elEditServer.style.display = "inline-flex";
+        elDeleteServer.style.display = "inline-flex";
+
+        elViewServer.href = `server.html?serverId=${encodeURIComponent(serverId)}`;
+        elEditServer.href = `builder.html?serverId=${encodeURIComponent(serverId)}`;
+
+        elDeleteServer.onclick = async () => {
+          const ok = window.confirm("Delete your server listing?");
+          if (!ok) return;
+
+          console.log("delete server here:", serverId);
+        };
+      }
+      onAuthStateChanged(auth, async (user) => {
+        try {
+          console.log("AUTH fired:", user ? user.uid : "no user");
+
+          if (!user) {
+            setAuthUI(null);
+            setServerOwnerActions();
+            return;
+          }
+
+          const userRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userRef);
+          console.log("users doc exists:", userSnap.exists(), userSnap.exists() ? userSnap.data() : null);
+
+          const data = userSnap.exists() ? userSnap.data() : null;
+          const label = data?.username ? `@${data.username}` : user.email;
+
+          setAuthUI(user, label);
+
+          const ownedServersQuery = query(
+            collection(db, "servers"),
+            where("ownerUid", "==", user.uid)
+          );
+
+          const ownedServersSnap = await getDocs(ownedServersQuery);
+          console.log("ownedServersSnap size:", ownedServersSnap.size);
+
+          ownedServersSnap.forEach((docSnap) => {
+            console.log("owned server:", docSnap.id, docSnap.data());
+          });
+
+          const ownedServerId = ownedServersSnap.empty ? null : ownedServersSnap.docs[0].id;
+          console.log("resolved ownedServerId:", ownedServerId);
+
+          setServerOwnerActions({
+            user,
+            serverId: ownedServerId
+          });
+        } catch (err) {
+          console.error("owner action resolve failed:", err);
+          setAuthUI(user, user?.email || "");
+          setServerOwnerActions({ user, serverId: null });
+        }
       });
     </script>
   </body>

@@ -25,7 +25,7 @@ body {
 }
 
 .wrap {
-  width: min(1120px, calc(100% - 32px));
+  width: min(1400px, calc(100vw - 48px));
   margin: 0 auto;
 }
 
@@ -710,14 +710,41 @@ h1 {
 }
 .market {
   display: grid;
-  grid-template-columns: 1.7fr 1fr;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
   align-items: start;
+  width: 100%;
 }
 
-@media (max-width: 920px) {
+.market {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+}
+
+.package {
+  width: 100%;
+  max-width: 280px;
+  position: sticky;
+  top: 90px;
+  align-self: start;
+  border: 1px solid var(--line);
+  border-radius: var(--soft);
+  background: rgba(255,255,255,0.92);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+@media (max-width: 1100px) {
   .market {
     grid-template-columns: 1fr;
+  }
+
+  .package {
+    max-width: none;
+    position: static;
   }
 }
 
@@ -769,16 +796,6 @@ h1 {
   color: rgba(2,6,23,0.85);
 }
 
-.package {
-  position: sticky;
-  top: 80px;
-  border: 1px solid var(--line);
-  border-radius: var(--soft);
-  background: rgba(255,255,255,0.92);
-  box-shadow: var(--shadow);
-  padding: 14px;
-}
-
 .package-title {
   font-weight: 950;
   letter-spacing: -0.02em;
@@ -806,28 +823,6 @@ h1 {
   margin-top: 10px;
   font-size: 12px;
   color: rgba(2,6,23,0.55);
-}
-.field textarea {
-  width: 100%;
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  border-radius: 14px;
-  padding: 12px 12px;
-  outline: none;
-  font-size: 14px;
-  background: #fff;
-  resize: vertical;
-  min-height: 120px;
-}
-
-.field textarea:focus {
-  border-color: rgba(29, 191, 115, 0.5);
-}
-
-.cover-img img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 button.pill-mini {
   cursor: pointer;
