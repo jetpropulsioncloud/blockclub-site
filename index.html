@@ -21,7 +21,7 @@
           <a href="#discord">Discord</a>
         </nav>
 
-        <a class="pill" href="submit.html">List a server</a>
+        <a class="pill" href="#">List a server</a>
       </div>
     </div>
 
@@ -234,7 +234,7 @@
       const searchBtn = document.getElementById("searchBtn");
       const filterButtons = Array.from(document.querySelectorAll(".filter[data-filter]"));
       const sortSelect = document.getElementById("sortSelect");
-
+      const SORT_KEY = "bc_sort";
       let activeSort = localStorage.getItem(SORT_KEY) || "trending";
       if (sortSelect) sortSelect.value = activeSort;
 
@@ -267,7 +267,21 @@
 
         return hay.includes(needle);
       }
+      document.querySelectorAll(".list-server-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
 
+          const user = auth.currentUser;
+
+          if (!user) {
+            alert("You must be signed in to list a server.");
+            document.getElementById("btnOpenAuth")?.click();
+            return;
+          }
+
+          window.location.href = "builder.html";
+        });
+      });
       function trendingScore(s) {
         const views = typeof s.views === "number" ? s.views : 0;
 
@@ -326,7 +340,7 @@
               <div class="ghost-inner">
                 <div class="ghost-title">No servers found</div>
                 <div class="muted">Try a different search or filter.</div>
-                <a class="btn primary" href="submit.html">List a server</a>
+                <a class="btn primary list-server-btn" href="#">List a server</a>
               </div>
             </article>
           `;
@@ -383,7 +397,7 @@
               <div class="ghost-inner">
                 <div class="ghost-title">Your server here</div>
                 <div class="muted">Sponsored + organic listings</div>
-                <a class="btn primary" href="submit.html">List a server</a>
+                <a class="btn primary list-server-btn" href="#">List a server</a>
               </div>
             </article>
           `
@@ -571,9 +585,12 @@
         getDoc,
         setDoc,
         runTransaction,
-        serverTimestamp
+        serverTimestamp,
+        collection,
+        query,
+        where,
+        getDocs
       } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-
       const elOpen = document.getElementById("btnOpenAuth");
       const elModal = document.getElementById("authModal");
       const elClose = document.getElementById("btnCloseAuth");
@@ -586,8 +603,24 @@
       const elUserPill = document.getElementById("userPill");
       const elUserLabel = document.getElementById("userLabel");
       const elLogout = document.getElementById("btnLogout");
+      const elListServerBtn = document.getElementById("listServerBtn");
 
       let mode = "login";
+      const listServerBtn = document.getElementById("listServerBtn");
+
+      listServerBtn?.addEventListener("click", (e) => {
+        e.preventDefault();
+
+        const user = auth.currentUser;
+
+        if (!user) {
+          alert("You must be signed in to list a server.");
+          document.getElementById("btnOpenAuth")?.click();
+          return;
+        }
+
+        window.location.href = "builder.html";
+      });
 
       function openModal() {
         elModal.style.display = "block";
@@ -701,7 +734,34 @@
       elLogout?.addEventListener("click", async () => {
         await signOut(auth);
       });
+      function setListServerButton({ user = null, serverId = null } = {}) {
+        if (!elListServerBtn) return;
 
+        elListServerBtn.onclick = null;
+
+        if (!user) {
+          elListServerBtn.textContent = "List a server";
+          elListServerBtn.href = "#";
+          elListServerBtn.addEventListener("click", handleListServerGuestClick, { once: true });
+          return;
+        }
+
+        if (serverId) {
+          elListServerBtn.textContent = "Edit your server";
+          elListServerBtn.href = `builder.html?serverId=${encodeURIComponent(serverId)}`;
+          return;
+        }
+
+        elListServerBtn.textContent = "Create your server";
+        elListServerBtn.href = "builder.html";
+      }
+
+      function handleListServerGuestClick(e) {
+        e.preventDefault();
+        setMode("login");
+        openModal();
+        elMsg.textContent = "You must be signed in to list a server.";
+      }
       function setAuthUI(user, label = "") {
         if (!user) {
           elOpen.style.display = "inline-flex";
@@ -718,6 +778,7 @@
       onAuthStateChanged(auth, async (user) => {
         if (!user) {
           setAuthUI(null);
+          setListServerButton();
           return;
         }
 
@@ -726,6 +787,19 @@
         const label = data?.username ? `@${data.username}` : user.email;
 
         setAuthUI(user, label);
+
+        const ownedServersQuery = query(
+          collection(db, "servers"),
+          where("ownerUid", "==", user.uid)
+        );
+
+        const ownedServersSnap = await getDocs(ownedServersQuery);
+        const ownedServerId = ownedServersSnap.empty ? null : ownedServersSnap.docs[0].id;
+
+        setListServerButton({
+          user,
+          serverId: ownedServerId
+        });
       });
     </script>
   </body>

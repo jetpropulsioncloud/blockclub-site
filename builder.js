@@ -5,7 +5,6 @@ async function loadFirebase() {
 
   const firestore = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
   const storage = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js");
-
   fb = { firestore, storage };
   return fb;
 }
@@ -1180,8 +1179,15 @@ canvas.addEventListener("pointerdown", (e) => {
   }
 });
 
-addTextBtn.addEventListener("click", addTextBlock);
-addImageBtn.addEventListener("click", addImageBlock);
+addTextBtn.addEventListener("click", () => {
+  addTextBlock();
+  saveState();
+});
+
+addImageBtn.addEventListener("click", () => {
+  addImageBlock();
+  saveState();
+});
 addBannerBtn.addEventListener("click", () => {
   addBannerBlock();
   saveState();
@@ -1207,6 +1213,7 @@ exportBtn.addEventListener("click", () => exportState());
 resetBtn.addEventListener("click", () => {
   if (!confirm("Reset canvas? This clears blocks and decorations.")) return;
   resetState();
+  saveState();
 });
 
 window.addEventListener("keydown", (e) => {
