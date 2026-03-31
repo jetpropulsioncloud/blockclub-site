@@ -122,16 +122,10 @@
 
     <script type="module">
       import { app, auth, db, storage } from "./firebase.js";
-      import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-
       window.bcApp = app;
       window.bcAuth = auth;
       window.bcDb = db;
       window.bcStorage = storage;
-
-      if (!auth.currentUser) {
-        await signInAnonymously(auth);
-      }
     </script>
 
     <script src="builder.js"></script>

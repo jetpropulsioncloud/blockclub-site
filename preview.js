@@ -97,7 +97,8 @@ async function render() {
     if (b.type === "image" || b.type === "banner") {
       const img = document.createElement("div");
       img.className = "pv-image";
-      if (b.dataUrl) img.style.backgroundImage = `url('${b.dataUrl}')`;
+      const src = String(b.imageUrl || b.dataUrl || "").trim();
+      if (src) img.style.backgroundImage = `url('${src}')`;
       body.appendChild(img);
     }
 

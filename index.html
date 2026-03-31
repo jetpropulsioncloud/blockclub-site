@@ -232,7 +232,9 @@
       import { db } from "./firebase.js";
       import {
         collection,
-        onSnapshot
+        onSnapshot,
+        query,
+        where
       } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 
@@ -279,9 +281,19 @@
       }
       function wireListServerButtons() {
         const buttons = document.querySelectorAll(".list-server-btn");
+
         buttons.forEach((btn) => {
           btn.onclick = (e) => {
             e.preventDefault();
+
+            const userPill = document.getElementById("userPill");
+            const signedIn = !!userPill && userPill.style.display !== "none";
+
+            if (signedIn) {
+              window.location.href = "builder.html";
+              return;
+            }
+
             document.getElementById("btnOpenAuth")?.click();
           };
         });
@@ -320,8 +332,8 @@
 
         if (activeSort === "newest") {
           copy.sort((a, b) => {
-            const at = typeof a.createdAt === "number" ? a.createdAt : 0;
-            const bt = typeof b.createdAt === "number" ? b.createdAt : 0;
+            const at = typeof a.pagePublishedAt === "number" ? a.pagePublishedAt : 0;
+            const bt = typeof b.pagePublishedAt === "number" ? b.pagePublishedAt : 0;
             return bt - at;
           });
           return copy;
@@ -334,7 +346,17 @@
         if (!f || f === "all") return true;
         return String(server.mode).toLowerCase() === f;
       }
+      function getPlayerText(s) {
+        if (typeof s.players === "number" && typeof s.maxPlayers === "number") {
+          return `${s.players}/${s.maxPlayers} players`;
+        }
 
+        if (typeof s.players === "number") {
+          return `${s.players} players`;
+        }
+
+        return "—";
+      }
       function renderServers(list) {
         if (!serverGrid) return;
 
@@ -348,16 +370,16 @@
               </div>
             </article>
           `;
+          wireListServerButtons();
           return;
         }
 
         const html = list
           .map((s) => {
             const statusClass = s.status === "online" ? "online" : "offline";
-            const playersText =
-              s.status === "online" && typeof s.players === "number"
-                ? `${s.players} players`
-                : "—";
+            const playersText = getPlayerText(s);
+            const banner = s.bannerUrl || "";
+            const excerpt = s.excerpt || "No description yet.";
 
             const tagsHtml = (s.tags || [])
               .slice(0, 4)
@@ -365,27 +387,48 @@
               .join("");
 
             return `
-              <article class="card" data-slug="${escapeHtml(s.slug)}">
-                <div class="card-top">
-                  <div class="server-icon small"></div>
-                  <div>
-                    <div class="card-title">${escapeHtml(s.name)}</div>
-                    <div class="card-sub">${escapeHtml(s.ip)}</div>
-                  </div>
-                  <div class="right">
-                    <div class="status ${statusClass}">
-                      ${s.status === "online" ? "Online" : "Offline"}
+              <article
+                class="card server-card"
+                data-view="${escapeHtml(s.id)}"
+                style="cursor:pointer; overflow:hidden;"
+              >
+                <div
+                  class="server-card-banner"
+                  style="
+                    width:100%;
+                    height:160px;
+                    background:${banner ? `url('${escapeHtml(banner)}') center/cover no-repeat` : '#1a1a1a'};
+                    border-bottom:1px solid rgba(255,255,255,0.06);
+                  "
+                ></div>
+
+                <div style="padding:16px;">
+                  <div class="card-top">
+                    <div class="server-icon small"></div>
+                    <div>
+                      <div class="card-title">${escapeHtml(s.name)}</div>
+                      <div class="card-sub">${escapeHtml(s.ip)}</div>
                     </div>
-                    <div class="muted">${escapeHtml(playersText)}</div>
+                    <div class="right">
+                      <div class="status ${statusClass}">
+                        ${s.status === "online" ? "Online" : "Offline"}
+                      </div>
+                      <div class="muted">${escapeHtml(playersText)}</div>
+                    </div>
                   </div>
-                </div>
 
-                <div class="tags">${tagsHtml}</div>
+                  <div class="tags" style="margin-top:12px;">${tagsHtml}</div>
 
-                <div class="card-actions">
-                  <button class="btn small view-btn" type="button" data-view="${escapeHtml(s.id)}">View</button>
-                  <button class="btn small ghost copy" type="button" data-copy="${escapeHtml(s.ip)}">Copy IP</button>
-                  <span class="pill-mini">${Number(s.views || 0).toLocaleString()} views</span>
+                  <div class="muted" style="margin-top:12px; line-height:1.45;">
+                    ${escapeHtml(excerpt)}
+                  </div>
+
+                  <div class="card-actions" style="margin-top:14px;">
+                    <button class="btn small view-btn" type="button" data-view="${escapeHtml(s.id)}">View</button>
+                    <button class="btn small ghost copy" type="button" data-copy="${escapeHtml(s.ip)}">Copy IP</button>
+                    <span class="pill-mini">${Number(s.views || 0).toLocaleString()} views</span>
+                    <span class="pill-mini">${Number(s.upvotes || 0).toLocaleString()} upvotes</span>
+                  </div>
                 </div>
               </article>
             `;
@@ -407,8 +450,10 @@
           `
         );
 
+        wireListServerButtons();
         wireCopyButtons();
         wireViewButtons();
+        wireServerCards();
       }
 
       function wireCopyButtons() {
@@ -429,7 +474,7 @@
       }
 
       function wireViewButtons() {
-        const viewButtons = document.querySelectorAll("[data-view]");
+        const viewButtons = document.querySelectorAll(".view-btn[data-view]");
         viewButtons.forEach((btn) => {
           btn.addEventListener("click", () => {
             const serverId = btn.getAttribute("data-view") || "";
@@ -439,7 +484,20 @@
           });
         });
       }
+      function wireServerCards() {
+        const cards = document.querySelectorAll(".server-card[data-view]");
 
+        cards.forEach((card) => {
+          card.addEventListener("click", (e) => {
+            if (e.target.closest("button")) return;
+
+            const serverId = card.getAttribute("data-view") || "";
+            if (!serverId) return;
+
+            window.location.href = `server.html?serverId=${encodeURIComponent(serverId)}`;
+          });
+        });
+      }
       function applyFilters() {
         const filtered = servers
           .filter((s) => matchesFilter(s, activeFilter))
@@ -519,7 +577,21 @@
         const ip = String(data?.ip || "").trim();
         const mode = String(data?.mode || "smp").trim().toLowerCase();
         const tags = Array.isArray(data?.tags) ? data.tags : [];
-        const slug = String(data?.slug || docId || "").trim();
+        const slug = String(data?.slug || "").trim();
+
+        const playerCount =
+          typeof data?.playerCount === "number"
+            ? data.playerCount
+            : typeof data?.players === "number"
+            ? data.players
+            : null;
+
+        const maxPlayers =
+          typeof data?.maxPlayers === "number"
+            ? data.maxPlayers
+            : typeof data?.playerMax === "number"
+            ? data.playerMax
+            : null;
 
         return {
           id: docId,
@@ -529,11 +601,15 @@
           tags,
           slug,
           status: String(data?.status || "unknown").toLowerCase(),
-          players: typeof data?.players === "number" ? data.players : null,
+          players: playerCount,
+          maxPlayers,
           createdAt: toMillisMaybe(data?.createdAt),
+          pagePublishedAt: toMillisMaybe(data?.pagePublishedAt),
           isPublished: data?.isPublished === true,
           views: typeof data?.views === "number" ? data.views : 0,
-          upvotes: typeof data?.upvotes === "number" ? data.upvotes : 0
+          upvotes: typeof data?.upvotes === "number" ? data.upvotes : 0,
+          excerpt: String(data?.excerpt || data?.description || "").trim(),
+          bannerUrl: String(data?.bannerUrl || data?.coverUrl || "").trim()
         };
       }
 
@@ -546,33 +622,51 @@
         </article>
       `;
 
-      onSnapshot(
+      const publishedServersQuery = query(
         collection(db, "servers"),
-        (snap) => {
-          servers = snap.docs
-            .map((d) => {
-              const data = d.data();
-              return {
-                ...normalizeServer(d.id, data),
-                isPublished: data?.isPublished === true
-              };
-            })
-            .filter((s) => s.isPublished)
-            .filter((s) => s.name && s.ip && s.slug);
+        where("isPublished", "==", true)
+      );
 
-          applyFilters();
+      function hydratePublishedServersFromSnapshot(snap) {
+        servers = snap.docs
+          .map((d) => normalizeServer(d.id, d.data()))
+          .filter((s) => s.name && s.ip);
+
+        applyFilters();
+      }
+
+      const unsubscribePublishedServers = onSnapshot(
+        publishedServersQuery,
+        (snap) => {
+          hydratePublishedServersFromSnapshot(snap);
         },
-        () => {
+        (error) => {
+          console.error("homepage server load failed:", error);
+
           serverGrid.innerHTML = `
             <article class="card ghost-card">
               <div class="ghost-inner">
                 <div class="ghost-title">Couldn’t load servers</div>
-                <div class="muted">Check Firebase config and Firestore rules.</div>
+                <div class="muted">Check Firebase config, Firestore indexes, and rules.</div>
               </div>
             </article>
           `;
         }
       );
+
+      window.addEventListener("pageshow", async (event) => {
+        if (!event.persisted) return;
+
+        console.log("index.html pageshow -> refreshing servers");
+
+        try {
+          const { getDocs } = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+          const snap = await getDocs(publishedServersQuery);
+          hydratePublishedServersFromSnapshot(snap);
+        } catch (error) {
+          console.error("pageshow refresh failed:", error);
+        }
+      });
     </script>
     <script type="module">
       import { auth, db } from "./firebase.js";
@@ -592,8 +686,10 @@
         collection,
         query,
         where,
-        getDocs
+        getDocs,
+        limit
       } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
       const elOpen = document.getElementById("btnOpenAuth");
       const elModal = document.getElementById("authModal");
       const elClose = document.getElementById("btnCloseAuth");
@@ -610,7 +706,9 @@
       const elUserPill = document.getElementById("userPill");
       const elUserLabel = document.getElementById("userLabel");
       const elLogout = document.getElementById("btnLogout");
+
       let mode = "login";
+
       function openModal() {
         elModal.style.display = "block";
         elMsg.textContent = "";
@@ -620,7 +718,7 @@
         elModal.style.display = "none";
         elPw.value = "";
       }
-      
+
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") closeModal();
       });
@@ -707,6 +805,7 @@
         try {
           if (mode === "login") {
             await login(identifier, password);
+            await resolveHomepageOwnerState(auth.currentUser);
             closeModal();
             return;
           }
@@ -714,6 +813,7 @@
           const email = identifier;
           const username = prompt("Pick a username (letters/numbers/_ only).") || "";
           await register(email, password, username);
+          await resolveHomepageOwnerState(auth.currentUser);
           closeModal();
         } catch (e) {
           elMsg.textContent = e?.message || "Something went wrong.";
@@ -724,12 +824,6 @@
         await signOut(auth);
       });
 
-      function handleListServerGuestClick(e) {
-        e.preventDefault();
-        setMode("login");
-        openModal();
-        elMsg.textContent = "You must be signed in to list a server.";
-      }
       function setAuthUI(user, label = "") {
         if (!user) {
           elOpen.style.display = "inline-flex";
@@ -742,6 +836,7 @@
         elUserPill.style.display = "inline-flex";
         elUserLabel.textContent = label;
       }
+
       function setServerOwnerActions({ user = null, serverId = null } = {}) {
         if (!elListServer || !elViewServer || !elEditServer || !elDeleteServer) {
           console.error("One or more server action elements are missing");
@@ -791,48 +886,56 @@
           console.log("delete server here:", serverId);
         };
       }
+
+      async function resolveHomepageOwnerState(user) {
+        if (!user) {
+          setAuthUI(null);
+          setServerOwnerActions();
+          return;
+        }
+
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        const data = userSnap.exists() ? userSnap.data() : null;
+        const label = data?.username ? `@${data.username}` : user.email;
+
+        setAuthUI(user, label);
+
+        const ownedServersQuery = query(
+          collection(db, "servers"),
+          where("ownerUid", "==", user.uid),
+          limit(1)
+        );
+
+        const ownedServersSnap = await getDocs(ownedServersQuery);
+        const ownedServerId = ownedServersSnap.empty ? null : ownedServersSnap.docs[0].id;
+
+        setServerOwnerActions({
+          user,
+          serverId: ownedServerId
+        });
+      }
       onAuthStateChanged(auth, async (user) => {
         try {
-          console.log("AUTH fired:", user ? user.uid : "no user");
-
-          if (!user) {
-            setAuthUI(null);
-            setServerOwnerActions();
-            return;
-          }
-
-          const userRef = doc(db, "users", user.uid);
-          const userSnap = await getDoc(userRef);
-          console.log("users doc exists:", userSnap.exists(), userSnap.exists() ? userSnap.data() : null);
-
-          const data = userSnap.exists() ? userSnap.data() : null;
-          const label = data?.username ? `@${data.username}` : user.email;
-
-          setAuthUI(user, label);
-
-          const ownedServersQuery = query(
-            collection(db, "servers"),
-            where("ownerUid", "==", user.uid)
-          );
-
-          const ownedServersSnap = await getDocs(ownedServersQuery);
-          console.log("ownedServersSnap size:", ownedServersSnap.size);
-
-          ownedServersSnap.forEach((docSnap) => {
-            console.log("owned server:", docSnap.id, docSnap.data());
-          });
-
-          const ownedServerId = ownedServersSnap.empty ? null : ownedServersSnap.docs[0].id;
-          console.log("resolved ownedServerId:", ownedServerId);
-
-          setServerOwnerActions({
-            user,
-            serverId: ownedServerId
-          });
+          await resolveHomepageOwnerState(user);
         } catch (err) {
-          console.error("owner action resolve failed:", err);
+          console.error("homepage auth sync failed:", err);
           setAuthUI(user, user?.email || "");
           setServerOwnerActions({ user, serverId: null });
+        }
+      });
+
+      window.addEventListener("pageshow", async (event) => {
+        if (!event.persisted) return;
+
+        console.log("index.html pageshow -> page restored from cache, re-syncing auth UI");
+
+        try {
+          await resolveHomepageOwnerState(auth.currentUser);
+        } catch (err) {
+          console.error("pageshow auth sync failed:", err);
+          setAuthUI(auth.currentUser, auth.currentUser?.email || "");
+          setServerOwnerActions({ user: auth.currentUser, serverId: null });
         }
       });
     </script>

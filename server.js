@@ -1,7 +1,15 @@
 import { auth, db } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { doc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-
+import {
+  doc,
+  getDoc,
+  setDoc,
+  deleteDoc,
+  updateDoc,
+  increment,
+  serverTimestamp,
+  runTransaction
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 const GRID = {  
   columns: 12,
   width: 1120,
@@ -26,11 +34,13 @@ const els = {
   spViewsPill: document.getElementById("spViewsPill"),
   spPlayersPill: document.getElementById("spPlayersPill"),
   spUpvotesPill: document.getElementById("spUpvotesPill"),
+  spUpvoteBtn: document.getElementById("spUpvoteBtn"),
   spTags: document.getElementById("spTags"),
   spDesc: document.getElementById("spDesc"),
   pageCanvas: document.getElementById("pageCanvas")
 };
-
+let currentViewer = null;
+let currentServerData = null;
 function getDraftKey(serverId) {
   return serverId ? `bc_builder_state_${serverId}` : "bc_builder_state_v1";
 }
@@ -233,7 +243,112 @@ function wireCopyIp(ip) {
     }
   });
 }
+function wireUpvoteButton(serverData, currentUser) {
+  if (!els.spUpvoteBtn || !els.spUpvotesPill) return;
 
+  const btn = els.spUpvoteBtn;
+  btn.replaceWith(btn.cloneNode(true));
+  els.spUpvoteBtn = document.getElementById("spUpvoteBtn");
+
+  const serverRef = doc(db, "servers", serverId);
+  const safeUpvotes = Number(serverData.upvotes || 0);
+
+  els.spUpvotesPill.textContent = `${safeUpvotes.toLocaleString()} upvotes`;
+
+  if (!currentUser) {
+    els.spUpvoteBtn.textContent = "Sign in to upvote";
+    els.spUpvoteBtn.disabled = true;
+    return;
+  }
+
+  if (serverData.ownerUid === currentUser.uid) {
+    els.spUpvoteBtn.textContent = "Own server";
+    els.spUpvoteBtn.disabled = true;
+    return;
+  }
+
+  const voteRef = doc(db, "servers", serverId, "votes", currentUser.uid);
+
+  async function syncVoteButtonState() {
+    try {
+      const voteSnap = await getDoc(voteRef);
+
+      if (voteSnap.exists()) {
+        els.spUpvoteBtn.textContent = "Remove vote";
+      } else {
+        els.spUpvoteBtn.textContent = "▲ Upvote";
+      }
+
+      els.spUpvoteBtn.disabled = false;
+    } catch (err) {
+      console.error("Failed to sync vote state:", err);
+      els.spUpvoteBtn.textContent = "Vote unavailable";
+      els.spUpvoteBtn.disabled = true;
+    }
+  }
+
+  els.spUpvoteBtn.textContent = "Loading...";
+  els.spUpvoteBtn.disabled = true;
+
+  syncVoteButtonState();
+
+  els.spUpvoteBtn.addEventListener("click", async () => {
+    try {
+      els.spUpvoteBtn.disabled = true;
+
+      const result = await runTransaction(db, async (tx) => {
+        const [serverSnap, voteSnap] = await Promise.all([
+          tx.get(serverRef),
+          tx.get(voteRef)
+        ]);
+
+        if (!serverSnap.exists()) {
+          throw new Error("Server does not exist.");
+        }
+
+        const currentUpvotes = Number(serverSnap.data()?.upvotes || 0);
+
+        if (voteSnap.exists()) {
+          tx.delete(voteRef);
+          tx.update(serverRef, {
+            upvotes: Math.max(0, currentUpvotes - 1)
+          });
+
+          return {
+            voted: false,
+            upvotes: Math.max(0, currentUpvotes - 1)
+          };
+        }
+
+        tx.set(voteRef, {
+          uid: currentUser.uid,
+          serverId,
+          createdAt: serverTimestamp()
+        });
+
+        tx.update(serverRef, {
+          upvotes: currentUpvotes + 1
+        });
+
+        return {
+          voted: true,
+          upvotes: currentUpvotes + 1
+        };
+      });
+
+      serverData.upvotes = result.upvotes;
+      els.spUpvotesPill.textContent = `${Number(result.upvotes || 0).toLocaleString()} upvotes`;
+      els.spUpvoteBtn.textContent = result.voted ? "Remove vote" : "▲ Upvote";
+      els.spUpvoteBtn.disabled = false;
+    } catch (err) {
+      console.error("Failed to toggle vote:", err);
+      els.spUpvoteBtn.textContent = "Vote failed";
+      setTimeout(() => {
+        syncVoteButtonState();
+      }, 900);
+    }
+  });
+}
 function renderBanner(serverData) {
   if (!els.coverWrap) return;
 
@@ -289,11 +404,31 @@ function renderServer(serverData, pageData) {
   const ip = serverData.ip || "No IP listed";
   const status = previewMode
     ? "preview"
-    : (serverData.status || (serverData.isPublished ? "published" : "draft"));  const mode = serverData.mode || "smp";
+    : (serverData.status || (serverData.isPublished ? "published" : "draft"));
+  const mode = serverData.mode || "smp";
   const views = Number(serverData.views || 0);
   const upvotes = Number(serverData.upvotes || 0);
+
+  const playerCount =
+    typeof serverData.playerCount === "number"
+      ? serverData.playerCount
+      : typeof serverData.players === "number"
+      ? serverData.players
+      : null;
+
+  const maxPlayers =
+    typeof serverData.maxPlayers === "number"
+      ? serverData.maxPlayers
+      : typeof serverData.playerMax === "number"
+      ? serverData.playerMax
+      : null;
+
   const players =
-    typeof serverData.players === "number" ? `${serverData.players} players` : "—";
+    typeof playerCount === "number" && typeof maxPlayers === "number"
+      ? `${playerCount}/${maxPlayers} players`
+      : typeof playerCount === "number"
+      ? `${playerCount} players`
+      : "—";
 
   document.title = `${name} | BlockClub`;
 
@@ -310,6 +445,7 @@ function renderServer(serverData, pageData) {
   renderTags(serverData.tags);
   renderPublishedPage(pageData);
   wireCopyIp(serverData.ip || "");
+  wireUpvoteButton(serverData, currentViewer);
 }
 
 async function loadServerPage(currentUser) {
@@ -332,6 +468,8 @@ async function loadServerPage(currentUser) {
   }
 
   const serverData = serverSnap.data() || {};
+  currentViewer = currentUser;
+  currentServerData = serverData;
   const isPublished = !!serverData.isPublished;
   const isOwner = !!currentUser && serverData.ownerUid === currentUser.uid;
 
@@ -385,36 +523,16 @@ window.addEventListener("pageshow", (event) => {
     });
   }
 });
-let isHydratingAuthUi = false;
 
-function rehydrateAuthUI() {
-  if (isHydratingAuthUi) return;
-  isHydratingAuthUi = true;
-
-  const finish = () => {
-    isHydratingAuthUi = false;
-  };
-
-  const run = (user) => {
-    loadServerPage(user)
-      .catch((err) => {
-        console.error(err);
-        showNotFound(err.message || "Unknown error while loading the page.");
-      })
-      .finally(finish);
-  };
-
+function rehydrateServerPage() {
   const unsubscribe = onAuthStateChanged(auth, (user) => {
     unsubscribe();
-    run(user);
+
+    loadServerPage(user).catch((err) => {
+      console.error(err);
+      showNotFound(err.message || "Unknown error while loading the page.");
+    });
   });
 }
 
-rehydrateAuthUI();
-
-window.addEventListener("pageshow", (event) => {
-  if (!event.persisted) return;
-
-  console.log("server.js pageshow -> page restored from cache, rehydrating auth UI");
-  rehydrateAuthUI();
-});
+rehydrateServerPage();

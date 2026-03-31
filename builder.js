@@ -64,7 +64,9 @@ async function waitForAuthUser(timeoutMs = 8000) {
     await new Promise((resolve) => setTimeout(resolve, 120));
   }
 
-  return window.bcAuth?.currentUser || null;
+  const user = window.bcAuth?.currentUser || null;
+  if (!user || user.isAnonymous) return null;
+  return user;
 }
 async function waitForFirebaseReady(timeoutMs = 8000) {
   const start = Date.now();
@@ -1494,7 +1496,15 @@ async function loadState() {
     }
   }
 
+  const user = await waitForAuthUser();
+
+  if (!user) {
+    showBuilderAccessError("You must be signed in with your real account to use the builder.");
+    return;
+  }
+
   lockIpField(false);
+
   clearStateObject();
   addTextBlock();
   addImageBlock();
