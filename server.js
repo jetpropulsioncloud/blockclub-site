@@ -405,7 +405,49 @@ function wireMinecraftVoteButton(serverData, currentUser) {
       return;
     }
 
-    els.spVoteMsg.textContent = "Vote UI is ready. Backend delivery comes next.";
+    try {
+      els.spVoteBtn.disabled = true;
+      els.spVoteBtn.textContent = "Voting...";
+      els.spVoteMsg.textContent = "";
+
+      const res = await fetch("https://us-central1-blockclub-4742a.cloudfunctions.net/vote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          serverId,
+          minecraftUsername
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        els.spVoteMsg.textContent = data?.error || "Vote failed.";
+        els.spVoteBtn.disabled = false;
+        els.spVoteBtn.textContent = "Vote";
+        return;
+      }
+
+      const nextTotalVotes =
+        typeof data?.totalVotes === "number"
+          ? data.totalVotes
+          : Number(serverData.totalVotes || 0) + 1;
+
+      serverData.totalVotes = nextTotalVotes;
+      els.spVotesPill.textContent = `${nextTotalVotes.toLocaleString()} votes`;
+      els.spVoteMsg.textContent = "Vote submitted successfully.";
+      els.spVoteUsername.value = "";
+
+      els.spVoteBtn.disabled = false;
+      els.spVoteBtn.textContent = "Vote";
+    } catch (err) {
+      console.error("Vote request failed:", err);
+      els.spVoteMsg.textContent = "Vote failed. Please try again.";
+      els.spVoteBtn.disabled = false;
+      els.spVoteBtn.textContent = "Vote";
+    }
   });
 }
 function renderTags(tags) {
