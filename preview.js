@@ -1,4 +1,9 @@
-const LS_KEY = "bc_builder_state_v1";
+const params = new URLSearchParams(window.location.search);
+const serverId = params.get("serverId");
+const isDraft = params.get("draft") === "1";
+function getDraftKey(serverId) {
+  return serverId ? `bc_builder_state_${serverId}` : "bc_builder_state_v1";
+}
 
 const canvas = document.getElementById("canvas");
 const note = document.getElementById("note");
@@ -11,7 +16,19 @@ function getRowH() {
   const n = parseInt(raw || "24", 10);
   return Number.isFinite(n) ? n : 24;
 }
+async function loadDraftFromFirestore(serverId) {
+  if (!window.bcDb) return null;
 
+  const firestore = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+  const { doc, getDoc } = firestore;
+
+  const draftRef = doc(window.bcDb, "servers", serverId, "drafts", "main");
+  const snap = await getDoc(draftRef);
+
+  if (!snap.exists()) return null;
+
+  return snap.data();
+}
 function gridToPx(x, y, w, h) {
   const rect = canvas.getBoundingClientRect();
   const cols = 12;
@@ -34,14 +51,13 @@ function safeParse(raw) {
   }
 }
 
-function render() {
+async function render() {
   canvas.innerHTML = "";
 
   let stateToUse = liveState;
 
-  if (!stateToUse) {
-    const raw = localStorage.getItem(LS_KEY);
-    stateToUse = raw ? safeParse(raw) : null;
+  if (!stateToUse && isDraft && serverId) {
+    stateToUse = await loadDraftFromFirestore(serverId);
   }
 
   if (!stateToUse || (!Array.isArray(stateToUse.blocks) && !Array.isArray(stateToUse.decorations))) {
@@ -120,7 +136,7 @@ function render() {
   }
 }
 
-window.addEventListener("resize", render);
+window.addEventListener("resize", () => render());
 window.addEventListener("message", (event) => {
   if (event.origin !== window.location.origin) return;
   if (!event.data || event.data.type !== "BC_PREVIEW_STATE") return;
@@ -129,4 +145,4 @@ window.addEventListener("message", (event) => {
   render();
 });
 
-window.addEventListener("load", render);
+window.addEventListener("load", () => render());

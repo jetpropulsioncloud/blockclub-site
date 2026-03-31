@@ -31,6 +31,31 @@ const els = {
   pageCanvas: document.getElementById("pageCanvas")
 };
 
+function getDraftKey(serverId) {
+  return serverId ? `bc_builder_state_${serverId}` : "bc_builder_state_v1";
+}
+
+function safeParse(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function loadDraftPageData(serverId) {
+  const raw = localStorage.getItem(getDraftKey(serverId));
+  if (!raw) return null;
+
+  const parsed = safeParse(raw);
+  if (!parsed) return null;
+
+  return {
+    blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [],
+    decorations: Array.isArray(parsed.decorations) ? parsed.decorations : []
+  };
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -118,6 +143,7 @@ function renderBlock(b) {
   el.style.width = `${pw}px`;
   el.style.height = `${ph}px`;
   el.style.transform = `rotate(${b.rot || 0}deg)`;
+  el.style.outline = "1px solid rgba(255,255,255,0.15)";
 
   if (b.type === "text") {
     const box = document.createElement("div");
@@ -130,7 +156,12 @@ function renderBlock(b) {
   if (b.type === "image" || b.type === "banner") {
     const img = document.createElement("div");
     img.className = "pv-image";
-    img.style.backgroundImage = `url("${escapeHtml(b.imageUrl || "")}")`;
+
+    const src = String(b.imageUrl || b.dataUrl || "").trim();
+    if (src) {
+      img.style.backgroundImage = `url("${escapeHtml(src)}")`;
+    }
+
     body.appendChild(img);
   }
 
@@ -152,17 +183,18 @@ function renderDecoration(d) {
   el.className = "pv-deco";
   el.textContent = d.emoji || d.value || "✨";
 
-  const { px, py, pw, ph } = gridToPx(d.x || 0, d.y || 0, d.w || 1, d.h || 1);
+  const canvasW = GRID.width;
+  const canvasH = Math.max(700, els.pageCanvas?.offsetHeight || 700);
 
-  el.style.left = `${px}px`;
-  el.style.top = `${py}px`;
-  el.style.width = `${pw}px`;
-  el.style.height = `${ph}px`;
-  el.style.display = "flex";
-  el.style.alignItems = "center";
-  el.style.justifyContent = "center";
-  el.style.fontSize = `${Math.max(24, Math.min(pw, ph) * 0.75)}px`;
-  el.style.transform = `rotate(${d.rot || 0}deg)`;
+  const x = (d.x || 0) * canvasW;
+  const y = (d.y || 0) * canvasH;
+
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+  el.style.position = "absolute";
+  el.style.transform = `translate(-50%, -50%) rotate(${d.rot || 0}deg)`;
+  el.style.fontSize = `${d.size || 54}px`;
+  el.style.opacity = `${d.opacity ?? 1}`;
 
   return el;
 }
@@ -255,8 +287,9 @@ function renderPublishedPage(pageData) {
 function renderServer(serverData, pageData) {
   const name = serverData.name || "Untitled Server";
   const ip = serverData.ip || "No IP listed";
-  const status = serverData.status || (serverData.isPublished ? "published" : "draft");
-  const mode = serverData.mode || "smp";
+  const status = previewMode
+    ? "preview"
+    : (serverData.status || (serverData.isPublished ? "published" : "draft"));  const mode = serverData.mode || "smp";
   const views = Number(serverData.views || 0);
   const upvotes = Number(serverData.upvotes || 0);
   const players =
@@ -298,37 +331,90 @@ async function loadServerPage(currentUser) {
     return;
   }
 
-    const serverData = serverSnap.data() || {};
-    const isPublished = !!serverData.isPublished;
-    const isOwner = !!currentUser && serverData.ownerUid === currentUser.uid;
+  const serverData = serverSnap.data() || {};
+  const isPublished = !!serverData.isPublished;
+  const isOwner = !!currentUser && serverData.ownerUid === currentUser.uid;
 
-    if (!isPublished && !(previewMode && isOwner)) {
-      showNotFound("This server page is not published.");
+  if (!isPublished && !(previewMode && isOwner)) {
+    showNotFound("This server page is not published.");
+    return;
+  }
+
+  const publishedPageData = pageSnap.exists()
+    ? pageSnap.data() || {}
+    : { blocks: [], decorations: [] };
+
+  let pageData = publishedPageData;
+
+  if (previewMode) {
+    if (!isOwner) {
+      showNotFound("Only the owner can view preview mode.");
       return;
     }
 
-    const pageData = pageSnap.exists()
-      ? pageSnap.data() || {}
-      : { blocks: [], decorations: [] };
+    const draftPageData = loadDraftPageData(serverId);
+    console.log("Preview draftPageData:", draftPageData);
 
-    if (isPublished && !previewMode) {
-      try {
-        await updateDoc(serverRef, {
-          views: increment(1)
-        });
-        serverData.views = Number(serverData.views || 0) + 1;
-      } catch (err) {
-        console.error("Failed to increment views:", err);
-      }
+    if (draftPageData) {
+      pageData = draftPageData;
     }
+  }
 
-    showServerPage();
-    renderServer(serverData, pageData);
+  if (isPublished && !previewMode) {
+    try {
+      await updateDoc(serverRef, {
+        views: increment(1)
+      });
+      serverData.views = Number(serverData.views || 0) + 1;
+    } catch (err) {
+      console.error("Failed to increment views:", err);
+    }
+  }
+
+  showServerPage();
+  renderServer(serverData, pageData);
+}
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    console.log("Page restored → forcing fresh auth sync");
+
+    onAuthStateChanged(auth, (user) => {
+      loadServerPage(user).catch((err) => {
+        console.error(err);
+      });
+    });
+  }
+});
+let isHydratingAuthUi = false;
+
+function rehydrateAuthUI() {
+  if (isHydratingAuthUi) return;
+  isHydratingAuthUi = true;
+
+  const finish = () => {
+    isHydratingAuthUi = false;
+  };
+
+  const run = (user) => {
+    loadServerPage(user)
+      .catch((err) => {
+        console.error(err);
+        showNotFound(err.message || "Unknown error while loading the page.");
+      })
+      .finally(finish);
+  };
+
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    unsubscribe();
+    run(user);
+  });
 }
 
-onAuthStateChanged(auth, (user) => {
-  loadServerPage(user).catch((err) => {
-    console.error(err);
-    showNotFound(err.message || "Unknown error while loading the page.");
-  });
+rehydrateAuthUI();
+
+window.addEventListener("pageshow", (event) => {
+  if (!event.persisted) return;
+
+  console.log("server.js pageshow -> page restored from cache, rehydrating auth UI");
+  rehydrateAuthUI();
 });

@@ -1,5 +1,4 @@
 let fb = null;
-
 async function loadFirebase() {
   if (fb) return fb;
 
@@ -15,7 +14,7 @@ const LAST_SERVER_ID_KEY = "bc_last_server_id";
 const canvas = document.getElementById("canvas");
 const blocksLayer = document.getElementById("blocksLayer");
 const decoLayer = document.getElementById("decoLayer");
-
+const homeBtn = document.getElementById("homeBtn");
 const addTextBtn = document.getElementById("addText");
 const addImageBtn = document.getElementById("addImage");
 const fontSelect = document.getElementById("fontSelect");
@@ -44,12 +43,40 @@ const serverIdFromUrl = params.get("serverId");
 function getDraftKey(serverId) {
   return serverId ? `bc_builder_state_${serverId}` : LS_KEY;
 }
-
 function replaceUrlServerId(serverId) {
   if (!serverId) return;
   const url = new URL(window.location.href);
   url.searchParams.set("serverId", serverId);
   window.history.replaceState({}, "", url.toString());
+}
+async function waitForAuthUser(timeoutMs = 8000) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const auth = window.bcAuth;
+
+    if (auth) {
+      if (auth.currentUser) return auth.currentUser;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      if (auth.currentUser) return auth.currentUser;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+
+  return window.bcAuth?.currentUser || null;
+}
+async function waitForFirebaseReady(timeoutMs = 8000) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    if (window.bcDb && window.bcAuth && window.bcStorage) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+
+  return false;
 }
 
 function clearStateObject() {
@@ -63,28 +90,27 @@ let decoMode = false;
 let history = [];
 let previewWindow = null;
 
-function openOrFocusPreview() {
+function openOrFocusPreview(url) {
   if (previewWindow && !previewWindow.closed) {
+    previewWindow.location.href = url;
     previewWindow.focus();
     return previewWindow;
   }
-  previewWindow = window.open("preview.html", "bc_preview");
+
+  previewWindow = window.open(url, "bc_preview");
   return previewWindow;
 }
 
 function sendPreviewState() {
-  const w = openOrFocusPreview();
-  if (!w) {
-    alert("Popup blocked. Allow popups for preview.");
-    return;
-  }
+  if (!previewWindow || previewWindow.closed) return;
 
-  const payload = {
-    type: "BC_PREVIEW_STATE",
-    state: JSON.parse(JSON.stringify(state))
-  };
-
-  w.postMessage(payload, window.location.origin);
+  previewWindow.postMessage(
+    {
+      type: "BC_PREVIEW_STATE",
+      state: JSON.parse(JSON.stringify(state))
+    },
+    window.location.origin
+  );
 }
 
 const state = {
@@ -116,19 +142,45 @@ function pxToGrid(xPx, yPx) {
   const gy = Math.round(yPx / rowH);
   return { x: clamp(gx, 0, cols - 1), y: clamp(gy, 0, 999) };
 }
-function saveState() {
-  const snapshot = JSON.stringify(state);
-  history.push(snapshot);
-  if (history.length > 50) history.shift();
-
-  const draftKey = getDraftKey(serverIdFromUrl || localStorage.getItem(LAST_SERVER_ID_KEY));
-  localStorage.setItem(draftKey, snapshot);
-
-  if (previewWindow && !previewWindow.closed) {
-    sendPreviewState();
-  }
+function makeDraftSafeState() {
+  return {
+    blocks: (state.blocks || []).map((b) => {
+      const copy = { ...b };
+      delete copy.dataUrl;
+      return copy;
+    }),
+    decorations: (state.decorations || []).map((d) => ({ ...d }))
+  };
 }
-function sizePxToGrid(wPx, hPx) {
+let draftSaveTimer = null;
+
+function saveState() {
+  try {
+    const snapshot = JSON.stringify(makeDraftSafeState());
+
+    history.push(snapshot);
+    if (history.length > 50) history.shift();
+
+    const routedServerId = serverIdFromUrl;
+
+    if (!routedServerId) {
+      return;
+    }
+
+    if (draftSaveTimer) clearTimeout(draftSaveTimer);
+
+    draftSaveTimer = setTimeout(async () => {
+      try {
+        await saveDraftPage(routedServerId);
+        console.log("Draft saved to Firestore:", routedServerId);
+      } catch (err) {
+        console.error("Failed to save Firestore draft:", err);
+      }
+    }, 500);
+  } catch (err) {
+    console.error("Failed to save builder draft:", err);
+  }
+}function sizePxToGrid(wPx, hPx) {
   const { cols, colW, rowH } = getGrid();
   const gw = Math.round(wPx / colW);
   const gh = Math.round(hPx / rowH);
@@ -180,6 +232,10 @@ function makeBlockShell(b) {
   del.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (b.storagePath) {
+      deleteStorageFile(b.storagePath);
+    }
+
     state.blocks = state.blocks.filter(x => x.id !== b.id);
     renderAll();
     saveState();
@@ -344,6 +400,18 @@ function buildPublishPayload() {
   return payload;
 }
 async function publishToFirebase(payload) {
+  const firebaseReady = await waitForFirebaseReady();
+
+  if (!firebaseReady) {
+    throw new Error("Firebase did not finish initializing.");
+  }
+
+  const user = await waitForAuthUser();
+
+  if (!user) {
+    throw new Error("You must be logged in to publish.");
+  }
+
   const { firestore, storage } = await loadFirebase();
   const { doc, setDoc, getDoc, serverTimestamp } = firestore;
   const { ref } = storage;
@@ -359,22 +427,32 @@ async function publishToFirebase(payload) {
   const ipEl = document.getElementById("serverIpInput");
 
   const serverName = String(nameEl?.value || "").trim();
-  const serverIp = String(ipEl?.value || "").trim();
+  const enteredServerIp = String(ipEl?.value || "").trim();
 
-  if (!serverName || !serverIp) {
-    alert("Add Server name and Server IP before publishing.");
+  const routedServerId = serverIdFromUrl;
+  const isNew = !routedServerId;
+
+  if (!serverName) {
+    alert("Add Server name before publishing.");
     return null;
   }
 
-  const routedServerId = serverIdFromUrl || localStorage.getItem(LAST_SERVER_ID_KEY);
-  const isNew = !routedServerId;
+  if (isNew && !enteredServerIp) {
+    alert("Add Server IP before publishing.");
+    return null;
+  }
+
   console.log("bcDb value:", window.bcDb);
   console.log("bcStorage value:", window.bcStorage);
   console.log("bcAuth value:", window.bcAuth);
   console.log("db constructor:", window.bcDb?.constructor?.name);
+  console.log("publish user uid:", user.uid);
+
   const serverRef = isNew
     ? doc(db, "servers", crypto.randomUUID())
     : doc(db, "servers", routedServerId);
+
+  let lockedServerIp = enteredServerIp;
 
   if (!isNew) {
     const existingSnap = await getDoc(serverRef);
@@ -384,10 +462,24 @@ async function publishToFirebase(payload) {
     }
 
     const existing = existingSnap.data() || {};
-    const currentUid = window.bcAuth?.currentUser?.uid || null;
+    const currentUid = user.uid;
+
+    console.log("existing.ownerUid:", existing.ownerUid);
+    console.log("currentUid:", currentUid);
+    console.log("routedServerId:", routedServerId);
 
     if (!currentUid || existing.ownerUid !== currentUid) {
       throw new Error("You cannot publish changes to a server you do not own.");
+    }
+
+    lockedServerIp = String(existing.ip || "").trim();
+
+    if (!lockedServerIp) {
+      throw new Error("Existing server is missing its locked IP.");
+    }
+
+    if (ipEl) {
+      ipEl.value = lockedServerIp;
     }
   }
 
@@ -398,6 +490,17 @@ async function publishToFirebase(payload) {
 
   for (const b of payload.blocks || []) {
     if (b.type === "banner") {
+      if (b.imageUrl) {
+        bannerUrl = b.imageUrl;
+
+        const copy = { ...b };
+        delete copy.dataUrl;
+        copy.imageUrl = b.imageUrl;
+        copy.storagePath = b.storagePath;
+        nextBlocks.push(copy);
+        continue;
+      }
+
       const dataUrl = String(b.dataUrl || "");
       if (!dataUrl) {
         alert("Banner needs an uploaded image before publishing.");
@@ -416,6 +519,13 @@ async function publishToFirebase(payload) {
     }
 
     if (b.type === "image") {
+      if (b.imageUrl) {
+        const copy = { ...b };
+        delete copy.dataUrl;
+        nextBlocks.push(copy);
+        continue;
+      }
+
       const dataUrl = String(b.dataUrl || "");
       if (!dataUrl) {
         nextBlocks.push(b);
@@ -438,26 +548,29 @@ async function publishToFirebase(payload) {
   }
 
   if (!bannerUrl) {
-    alert("Banner upload failed.");
+    alert("Banner is required.");
     return null;
   }
 
-  const ownerUid = window.bcAuth?.currentUser?.uid || null;
+  const ownerUid = user.uid;
 
-  await setDoc(serverRef, {
+  const serverDocData = {
     ownerUid,
     name: serverName,
-    ip: serverIp,
     bannerUrl,
-    ...(isNew ? {
-      createdAt: serverTimestamp(),
-      views: 0,
-      upvotes: 0
-    } : {}),
     updatedAt: serverTimestamp(),
     pagePublishedAt: serverTimestamp(),
     isPublished: true
-  }, { merge: true });
+  };
+
+  if (isNew) {
+    serverDocData.ip = lockedServerIp;
+    serverDocData.createdAt = serverTimestamp();
+    serverDocData.views = 0;
+    serverDocData.upvotes = 0;
+  }
+
+  await setDoc(serverRef, serverDocData, { merge: true });
 
   const pageRef = doc(db, "servers", serverId, "pages", "main");
 
@@ -472,31 +585,13 @@ async function publishToFirebase(payload) {
   localStorage.setItem(LAST_SERVER_ID_KEY, serverId);
   replaceUrlServerId(serverId);
 
-  const draftKey = getDraftKey(serverId);
-  localStorage.setItem(draftKey, JSON.stringify(state));
+  lockIpField(true);
+  const usedPaths = nextBlocks
+    .map(b => b.storagePath)
+    .filter(Boolean);
 
+  await cleanupUnusedDraftImages(serverId, usedPaths);
   return { serverId, bannerUrl };
-}
-function validateBeforePublish() {
-  const hasBanner = (state.blocks || []).some(
-    b => b.type === "banner" && (b.dataUrl || b.imageUrl || "").length > 0
-  );
-
-  const hasVoteUrl = (state.blocks || []).some(
-    b => b.type === "vote" && (b.voteUrl || "").trim().length > 0
-  );
-
-  if (!hasBanner) {
-    alert("You must add a banner with an uploaded image.");
-    return false;
-  }
-
-  if (!hasVoteUrl) {
-    alert("You must add a vote button and set its URL.");
-    return false;
-  }
-
-  return true;
 }
 function renderBlock(b) {
   const { el, body } = makeBlockShell(b);
@@ -563,7 +658,7 @@ function renderBlock(b) {
     preview.className = "muted";
     preview.style.fontWeight = "900";
 
-    const src = b.dataUrl || b.imageUrl || "";
+    const src = b.imageUrl || b.dataUrl || "";
     if (src) {
       box.style.backgroundImage = `url('${src}')`;
       box.style.backgroundSize = "cover";
@@ -577,17 +672,45 @@ function renderBlock(b) {
       const file = input.files && input.files[0];
       if (!file) return;
 
-      const dataUrl = await fileToDataUrl(file);
-      b.dataUrl = dataUrl;
+      const routedServerId = serverIdFromUrl;
 
-      box.style.backgroundImage = `url('${dataUrl}')`;
-      box.style.backgroundSize = "cover";
-      box.style.backgroundPosition = "center";
-      box.style.borderStyle = "solid";
-      label.style.display = "none";
-      preview.textContent = "Image set";
+      if (!routedServerId) {
+        const dataUrl = await fileToDataUrl(file);
+        b.dataUrl = dataUrl;
 
-      saveState();
+        box.style.backgroundImage = `url('${dataUrl}')`;
+        box.style.backgroundSize = "cover";
+        box.style.backgroundPosition = "center";
+        box.style.borderStyle = "solid";
+        label.style.display = "none";
+        preview.textContent = "Image set";
+
+        saveState();
+        return;
+      }
+      try {
+        preview.textContent = "Uploading...";
+        if (b.storagePath) {
+          await deleteStorageFile(b.storagePath);
+        }
+        const { imageUrl, storagePath } = await uploadDraftImage(file, routedServerId, b.id);
+
+        b.imageUrl = imageUrl;
+        b.storagePath = storagePath;
+        delete b.dataUrl;
+
+        box.style.backgroundImage = `url('${imageUrl}')`;
+        box.style.backgroundSize = "cover";
+        box.style.backgroundPosition = "center";
+        box.style.borderStyle = "solid";
+        label.style.display = "none";
+        preview.textContent = "Uploaded";
+
+        saveState();
+      } catch (err) {
+        console.error("Draft upload failed:", err);
+        preview.textContent = "Upload failed";
+      }
     });
 
     box.appendChild(label);
@@ -727,6 +850,72 @@ async function uploadBlobAndGetUrl(storageRef, blob) {
   });
 
   return await getDownloadURL(storageRef);
+}
+async function cleanupUnusedDraftImages(serverId, usedPaths) {
+  try {
+    const user = await waitForAuthUser();
+    if (!user) return;
+
+    const { storage } = await loadFirebase();
+    const { ref, listAll, deleteObject } = storage;
+
+    const st = window.bcStorage;
+
+    const folderRef = ref(st, `draftUploads/${user.uid}/${serverId}`);
+
+    const res = await listAll(folderRef);
+
+    const usedSet = new Set(usedPaths.filter(Boolean));
+
+    for (const item of res.items) {
+      const fullPath = item.fullPath;
+
+      if (!usedSet.has(fullPath)) {
+        try {
+          await deleteObject(item);
+          console.log("GC deleted:", fullPath);
+        } catch (err) {
+          console.warn("GC failed delete:", fullPath, err);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("GC skipped:", err);
+  }
+}
+async function uploadDraftImage(file, serverId, blockId) {
+  const user = await waitForAuthUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const st = window.bcStorage;
+  if (!st) throw new Error("Storage not ready");
+
+  const { ref } = (await loadFirebase()).storage;
+
+  const webp = await compressToWebp(await fileToDataUrl(file), 1200, 0.82);
+
+  const path = `draftUploads/${user.uid}/${serverId}/${safeFileName(blockId)}.webp`;
+  const storageRef = ref(st, path);
+
+  const imageUrl = await uploadBlobAndGetUrl(storageRef, webp);
+
+  return { imageUrl, storagePath: path };
+}
+async function deleteStorageFile(storagePath) {
+  if (!storagePath) return;
+
+  try {
+    const { storage } = await loadFirebase();
+    const { ref, deleteObject } = storage;
+
+    const st = window.bcStorage;
+    const fileRef = ref(st, storagePath);
+
+    await deleteObject(fileRef);
+    console.log("Deleted old image:", storagePath);
+  } catch (err) {
+    console.warn("Failed to delete old image:", storagePath, err);
+  }
 }
 function renderDeco(d) {
   const el = document.createElement("div");
@@ -1081,22 +1270,32 @@ async function loadServerPageFromFirebase(serverId) {
 
   const db = window.bcDb;
   if (!db) {
-    throw new Error("Firebase not initialized. Check builder.html module script.");
+    throw new Error("Firebase database is not ready.");
+  }
+
+  const user = await waitForAuthUser();
+
+  if (!user) {
+    throw new Error("You must be logged in to edit a server.");
   }
 
   const serverSnap = await getDoc(doc(db, "servers", serverId));
-  const pageSnap = await getDoc(doc(db, "servers", serverId, "pages", "main"));
 
   if (!serverSnap.exists()) {
     throw new Error(`Server ${serverId} was not found.`);
   }
 
   const serverData = serverSnap.data() || {};
-  const currentUid = window.bcAuth?.currentUser?.uid || null;
 
-  if (serverData.ownerUid && currentUid && serverData.ownerUid !== currentUid) {
+  if (!serverData.ownerUid) {
+    throw new Error("This server is missing an owner and cannot be edited.");
+  }
+
+  if (serverData.ownerUid !== user.uid) {
     throw new Error("You do not own this server page.");
   }
+
+  const pageSnap = await getDoc(doc(db, "servers", serverId, "pages", "main"));
   const pageData = pageSnap.exists() ? pageSnap.data() || {} : {};
 
   const nameEl = document.getElementById("serverNameInput");
@@ -1105,47 +1304,197 @@ async function loadServerPageFromFirebase(serverId) {
   if (nameEl) nameEl.value = serverData.name || "";
   if (ipEl) ipEl.value = serverData.ip || "";
 
+  lockIpField(true);
+
   clearStateObject();
   state.blocks = Array.isArray(pageData.blocks) ? pageData.blocks : [];
   state.decorations = Array.isArray(pageData.decorations) ? pageData.decorations : [];
+
+  return {
+    ok: true,
+    serverData,
+    pageData,
+    ownerUid: user.uid
+  };
+}
+function lockIpField(locked) {
+  const ipEl = document.getElementById("serverIpInput");
+  if (!ipEl) return;
+
+  ipEl.disabled = !!locked;
+  ipEl.readOnly = !!locked;
+  ipEl.style.opacity = locked ? "0.65" : "1";
+  ipEl.style.cursor = locked ? "not-allowed" : "text";
+
+  if (locked) {
+    ipEl.title = "Server IP cannot be changed after the server is created.";
+  } else {
+    ipEl.title = "";
+  }
+}
+function showBuilderAccessError(message) {
+  clearStateObject();
+  renderAll();
+
+  const nameEl = document.getElementById("serverNameInput");
+  const ipEl = document.getElementById("serverIpInput");
+
+  if (nameEl) {
+    nameEl.value = "";
+    nameEl.disabled = true;
+    nameEl.placeholder = "Access denied";
+  }
+
+  if (ipEl) {
+    ipEl.value = "";
+    ipEl.disabled = true;
+    ipEl.readOnly = true;
+    ipEl.placeholder = "Access denied";
+  }
+
+  if (addTextBtn) addTextBtn.disabled = true;
+  if (addImageBtn) addImageBtn.disabled = true;
+  if (addBannerBtn) addBannerBtn.disabled = true;
+  if (addVoteBtn) addVoteBtn.disabled = true;
+  if (addEmojiBtn) addEmojiBtn.disabled = true;
+  if (toggleDecoBtn) toggleDecoBtn.disabled = true;
+  if (previewBtn) previewBtn.disabled = true;
+  if (publishBtn) publishBtn.disabled = true;
+  if (resetBtn) resetBtn.disabled = true;
+  if (exportBtn) exportBtn.disabled = true;
+  if (fontSelect) fontSelect.disabled = true;
+
+  alert(message);
+}
+async function assertServerOwnership(serverId) {
+  const firebaseReady = await waitForFirebaseReady();
+  if (!firebaseReady) {
+    throw new Error("Firebase did not finish initializing.");
+  }
+
+  const user = await waitForAuthUser();
+  if (!user) {
+    throw new Error("You must be logged in.");
+  }
+
+  const { firestore } = await loadFirebase();
+  const { doc, getDoc } = firestore;
+
+  const db = window.bcDb;
+  if (!db) {
+    throw new Error("Firebase database is not ready.");
+  }
+
+  const serverRef = doc(db, "servers", serverId);
+  const serverSnap = await getDoc(serverRef);
+
+  if (!serverSnap.exists()) {
+    throw new Error("Server not found.");
+  }
+
+  const serverData = serverSnap.data() || {};
+
+  if (!serverData.ownerUid) {
+    throw new Error("This server has no owner.");
+  }
+
+  if (serverData.ownerUid !== user.uid) {
+    throw new Error("You do not own this server.");
+  }
+
+  return { user, serverData };
 }
 
-function loadDraftState(serverId) {
-  const draftKey = getDraftKey(serverId);
-  const raw = localStorage.getItem(draftKey);
-  if (!raw) return false;
+async function loadDraftPage(serverId) {
+  const { firestore } = await loadFirebase();
+  const { doc, getDoc } = firestore;
 
-  const parsed = JSON.parse(raw);
-  clearStateObject();
-  state.blocks = Array.isArray(parsed.blocks) ? parsed.blocks : [];
-  state.decorations = Array.isArray(parsed.decorations) ? parsed.decorations : [];
-  return true;
+  const db = window.bcDb;
+  if (!db) {
+    throw new Error("Firebase database is not ready.");
+  }
+
+  const draftRef = doc(db, "servers", serverId, "drafts", "main");
+  const draftSnap = await getDoc(draftRef);
+
+  if (!draftSnap.exists()) {
+    return null;
+  }
+
+  return draftSnap.data() || null;
+}
+
+async function saveDraftPage(serverId) {
+  const ownership = await assertServerOwnership(serverId);
+
+  const { firestore } = await loadFirebase();
+  const { doc, setDoc, serverTimestamp } = firestore;
+
+  const db = window.bcDb;
+  if (!db) {
+    throw new Error("Firebase database is not ready.");
+  }
+
+  const safeState = makeDraftSafeState();
+  const draftRef = doc(db, "servers", serverId, "drafts", "main");
+
+  await setDoc(
+    draftRef,
+    {
+      serverId,
+      ownerUid: ownership.user.uid,
+      version: 1,
+      blocks: safeState.blocks,
+      decorations: safeState.decorations,
+      updatedAt: serverTimestamp()
+    },
+    { merge: true }
+  );
 }
 async function loadState() {
-  const routedServerId = serverIdFromUrl || localStorage.getItem(LAST_SERVER_ID_KEY);
+  const routedServerId = serverIdFromUrl;
 
   if (routedServerId) {
     try {
-      await loadServerPageFromFirebase(routedServerId);
+      const { serverData } = await assertServerOwnership(routedServerId);
 
-      const hasDraft = loadDraftState(routedServerId);
-      if (hasDraft) {
-        console.log(`Loaded local draft for server ${routedServerId}`);
+      const nameEl = document.getElementById("serverNameInput");
+      const ipEl = document.getElementById("serverIpInput");
+
+      if (nameEl) nameEl.value = serverData.name || "";
+      if (ipEl) ipEl.value = serverData.ip || "";
+
+      lockIpField(true);
+
+      const draftData = await loadDraftPage(routedServerId);
+
+      if (draftData) {
+        clearStateObject();
+        state.blocks = Array.isArray(draftData.blocks) ? draftData.blocks : [];
+        state.decorations = Array.isArray(draftData.decorations) ? draftData.decorations : [];
+        console.log(`Loaded Firestore draft for server ${routedServerId}`);
+        renderAll();
+        return;
       }
 
+      const loadedPublished = await loadServerPageFromFirebase(routedServerId);
+      if (loadedPublished) {
+        console.log(`Loaded published page for server ${routedServerId}`);
+        renderAll();
+        return;
+      }
+
+      clearStateObject();
       renderAll();
       return;
     } catch (err) {
-      console.warn("Could not load server page from Firebase:", err);
+      console.error("Routed builder access denied:", err);
+      showBuilderAccessError(err.message || "You do not have permission to edit this server.");
+      return;
     }
   }
 
-  const hasGenericDraft = loadDraftState(null);
-  if (hasGenericDraft) {
-    renderAll();
-    return;
-  }
-
+  lockIpField(false);
   clearStateObject();
   addTextBlock();
   addImageBlock();
@@ -1255,7 +1604,17 @@ closeExport.addEventListener("click", () => exportDialog.close());
 copyExport.addEventListener("click", copyExportText);
 previewBtn.addEventListener("click", () => {
   saveState();
-  sendPreviewState();
+
+  const routedServerId = serverIdFromUrl;
+  const url = routedServerId
+    ? `preview.html?serverId=${encodeURIComponent(routedServerId)}&draft=1`
+    : "preview.html";
+
+  openOrFocusPreview(url);
+
+  setTimeout(() => {
+    sendPreviewState();
+  }, 150);
 });
 publishBtn.addEventListener("click", async () => {
   const hasBanner = (state.blocks || []).some(b => b.type === "banner" && (b.dataUrl || "").length > 0);
@@ -1302,7 +1661,9 @@ window.addEventListener("keydown", (e) => {
     }
   }
 });
-
+homeBtn?.addEventListener("click", () => {
+  window.location.href = "index.html";
+});
 setDecoMode(false);
 
 loadState().catch((err) => {
