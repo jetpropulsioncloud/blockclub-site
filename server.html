@@ -60,9 +60,31 @@
 
                 <div id="spTags" class="tags" style="margin-top: 12px;"></div>
 
-                <div class="desc">
-                  <div class="field-label">About this server</div>
-                  <div id="spDesc" class="muted" style="margin-top: 6px;">No description yet.</div>
+                <div class="desc" style="margin-top: 16px;">
+                  <div class="field-label">Vote for rewards</div>
+                  <div class="muted" style="margin-top: 6px;">
+                    Vote here to receive in-game rewards on this server.
+                  </div>
+
+                  <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+                    <input
+                      id="spVoteUsername"
+                      type="text"
+                      placeholder="Minecraft username"
+                      style="
+                        min-width: 220px;
+                        padding: 10px 12px;
+                        border-radius: 10px;
+                        border: 1px solid rgba(255,255,255,0.12);
+                        background: rgba(255,255,255,0.04);
+                        color: white;
+                      "
+                    />
+                    <button id="spVoteBtn" class="btn small ghost" type="button">Vote</button>
+                  </div>
+
+                  <div id="spVoteMsg" class="muted" style="margin-top:8px;"></div>
+                  <div id="spVotesPill" class="pill-mini" style="margin-top:10px; display:inline-flex;">0 votes</div>
                 </div>
 
                 <div class="desc" style="margin-top: 16px;">

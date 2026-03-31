@@ -37,7 +37,11 @@ const els = {
   spUpvoteBtn: document.getElementById("spUpvoteBtn"),
   spTags: document.getElementById("spTags"),
   spDesc: document.getElementById("spDesc"),
-  pageCanvas: document.getElementById("pageCanvas")
+  pageCanvas: document.getElementById("pageCanvas"),
+  spVoteUsername: document.getElementById("spVoteUsername"),
+  spVoteBtn: document.getElementById("spVoteBtn"),
+  spVoteMsg: document.getElementById("spVoteMsg"),
+  spVotesPill: document.getElementById("spVotesPill"),
 };
 let currentViewer = null;
 let currentServerData = null;
@@ -366,7 +370,44 @@ function renderBanner(serverData) {
     />
   `;
 }
+function wireMinecraftVoteButton(serverData, currentUser) {
+  if (!els.spVoteBtn || !els.spVoteUsername || !els.spVoteMsg || !els.spVotesPill) return;
 
+  const btn = els.spVoteBtn;
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+  els.spVoteBtn = newBtn;
+
+  const totalVotes = Number(serverData.totalVotes || 0);
+  els.spVotesPill.textContent = `${totalVotes.toLocaleString()} votes`;
+  els.spVoteMsg.textContent = "";
+
+  if (!serverData.votingEnabled) {
+    els.spVoteBtn.disabled = true;
+    els.spVoteBtn.textContent = "Voting unavailable";
+    els.spVoteMsg.textContent = "This server has not enabled BlockClub voting yet.";
+    return;
+  }
+
+  els.spVoteBtn.disabled = false;
+  els.spVoteBtn.textContent = "Vote";
+
+  els.spVoteBtn.addEventListener("click", async () => {
+    const minecraftUsername = String(els.spVoteUsername.value || "").trim();
+
+    if (!minecraftUsername) {
+      els.spVoteMsg.textContent = "Enter your Minecraft username first.";
+      return;
+    }
+
+    if (!currentUser) {
+      els.spVoteMsg.textContent = "You need to be signed in before voting.";
+      return;
+    }
+
+    els.spVoteMsg.textContent = "Vote UI is ready. Backend delivery comes next.";
+  });
+}
 function renderTags(tags) {
   if (!els.spTags) return;
   const safeTags = Array.isArray(tags) ? tags : [];
@@ -408,6 +449,7 @@ function renderServer(serverData, pageData) {
   const mode = serverData.mode || "smp";
   const views = Number(serverData.views || 0);
   const upvotes = Number(serverData.upvotes || 0);
+  const totalVotes = Number(serverData.totalVotes || 0);
 
   const playerCount =
     typeof serverData.playerCount === "number"
@@ -440,12 +482,14 @@ function renderServer(serverData, pageData) {
   if (els.spPlayersPill) els.spPlayersPill.textContent = players;
   if (els.spUpvotesPill) els.spUpvotesPill.textContent = `${upvotes.toLocaleString()} upvotes`;
   if (els.spDesc) els.spDesc.textContent = serverData.description || "No description yet.";
+  if (els.spVotesPill) els.spVotesPill.textContent = `${totalVotes.toLocaleString()} votes`;
 
   renderBanner(serverData);
   renderTags(serverData.tags);
   renderPublishedPage(pageData);
   wireCopyIp(serverData.ip || "");
   wireUpvoteButton(serverData, currentViewer);
+  wireMinecraftVoteButton(serverData, currentViewer);
 }
 
 async function loadServerPage(currentUser) {
