@@ -49,8 +49,14 @@ const copyVoteConfigBtn = document.getElementById("copyVoteConfigBtn");
 const voteConfigPreview = document.getElementById("voteConfigPreview");
 const testVoteBtn = document.getElementById("testVoteBtn");
 const testVoteMsg = document.getElementById("testVoteMsg");
+
+
 function getDraftKey(serverId) {
   return serverId ? `bc_builder_state_${serverId}` : LS_KEY;
+}
+function getActiveServerId() {
+  const liveParams = new URLSearchParams(window.location.search);
+  return liveParams.get("serverId") || localStorage.getItem(LAST_SERVER_ID_KEY);
 }
 function replaceUrlServerId(serverId) {
   if (!serverId) return;
@@ -151,7 +157,7 @@ async function saveVotingConfig(serverId) {
   buildVoteConfigSnippet();
 }
 saveVotingBtn?.addEventListener("click", async () => {
-  const serverId = serverIdFromUrl;
+  const serverId = getActiveServerId();
 
   if (!serverId) {
     alert("Publish your server first before configuring voting.");
@@ -162,8 +168,8 @@ saveVotingBtn?.addEventListener("click", async () => {
     await saveVotingConfig(serverId);
     alert("Voting settings saved.");
   } catch (err) {
-    console.error(err);
-    alert("Failed to save voting settings.");
+    console.error("Save voting failed:", err);
+    alert(err?.message || "Failed to save voting settings.");
   }
 });
 function generateSecureToken(length = 48) {
@@ -1548,9 +1554,9 @@ async function assertServerOwnership(serverId) {
   return { user, serverData };
 }
 testVoteBtn?.addEventListener("click", async () => {
-  const routedServerId = serverIdFromUrl;
+  const activeServerId = getActiveServerId();
 
-  if (!routedServerId) {
+  if (!activeServerId) {
     alert("Publish your server first before testing voting.");
     return;
   }
@@ -1560,7 +1566,7 @@ testVoteBtn?.addEventListener("click", async () => {
     testVoteBtn.textContent = "Sending...";
     if (testVoteMsg) testVoteMsg.textContent = "";
 
-    await saveVotingConfig(routedServerId);
+    await saveVotingConfig(activeServerId);
 
     const res = await fetch("https://us-central1-blockclub-4742a.cloudfunctions.net/testVote", {
       method: "POST",
@@ -1568,7 +1574,7 @@ testVoteBtn?.addEventListener("click", async () => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        serverId: routedServerId
+        serverId: activeServerId
       })
     });
 

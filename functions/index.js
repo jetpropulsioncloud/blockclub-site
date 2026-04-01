@@ -4,10 +4,27 @@ const { sendVote } = require("@hytaleone/votifier");
 
 admin.initializeApp();
 
-exports.vote = functions.https.onRequest(async (req, res) => {
-  res.set("Access-Control-Allow-Origin", "*");
+function applyCors(req, res) {
+  const allowedOrigins = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "https://blockclub-4742a.web.app",
+    "https://blockclub-4742a.firebaseapp.com"
+  ];
+
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+  }
+
+  res.set("Vary", "Origin");
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
+}
+
+exports.vote = functions.https.onRequest(async (req, res) => {
+  applyCors(req, res);
 
   if (req.method === "OPTIONS") {
     return res.status(204).send("");
@@ -134,14 +151,12 @@ exports.vote = functions.https.onRequest(async (req, res) => {
     });
   } catch (err) {
     console.error("vote endpoint failed:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: err?.message || "Internal server error" });
   }
 });
 
 exports.testVote = functions.https.onRequest(async (req, res) => {
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  applyCors(req, res);
 
   if (req.method === "OPTIONS") {
     return res.status(204).send("");
@@ -172,7 +187,7 @@ exports.testVote = functions.https.onRequest(async (req, res) => {
     }
 
     if (!configSnap.exists) {
-      return res.status(400).json({ error: "Voting config not found" });
+      return res.status(404).json({ error: "Voting config not found" });
     }
 
     const config = configSnap.data() || {};
@@ -187,7 +202,7 @@ exports.testVote = functions.https.onRequest(async (req, res) => {
     const serviceName = String(config.votifierServiceName || "blockclub").trim();
 
     if (!host || !port || !token) {
-      return res.status(400).json({ error: "Votifier config is incomplete" });
+      return res.status(400).json({ error: "Incomplete voting config" });
     }
 
     const voteResult = await sendVote({
@@ -199,7 +214,7 @@ exports.testVote = functions.https.onRequest(async (req, res) => {
         timeout: 5000
       },
       vote: {
-        username: "BlockClubTest",
+        username: "TestVoteUser",
         serviceName,
         address: "127.0.0.1",
         timestamp: Date.now()
@@ -207,8 +222,9 @@ exports.testVote = functions.https.onRequest(async (req, res) => {
     });
 
     if (!voteResult.success) {
+      console.error("Test vote delivery failed:", voteResult);
       return res.status(502).json({
-        error: voteResult.message || "Test vote failed."
+        error: `Test vote delivery failed: ${voteResult.message || "unknown error"}`
       });
     }
 
@@ -219,7 +235,7 @@ exports.testVote = functions.https.onRequest(async (req, res) => {
   } catch (err) {
     console.error("testVote failed:", err);
     return res.status(500).json({
-      error: err.message || "Test vote failed."
+      error: err?.message || "Test vote failed."
     });
   }
 });
