@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@hytaleone/votifier": "^1.0.0",
     "firebase": "^12.9.0"
   }
 }

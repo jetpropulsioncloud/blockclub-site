@@ -39,7 +39,16 @@ const MAX_DECOS = 10;
 const addBannerBtn = document.getElementById("addBanner");
 const params = new URLSearchParams(window.location.search);
 const serverIdFromUrl = params.get("serverId");
-
+const voteEnabledInput = document.getElementById("voteEnabledInput");
+const voteHostInput = document.getElementById("voteHostInput");
+const votePortInput = document.getElementById("votePortInput");
+const voteTokenInput = document.getElementById("voteTokenInput");
+const saveVotingBtn = document.getElementById("saveVotingBtn");
+const generateVoteTokenBtn = document.getElementById("generateVoteTokenBtn");
+const copyVoteConfigBtn = document.getElementById("copyVoteConfigBtn");
+const voteConfigPreview = document.getElementById("voteConfigPreview");
+const testVoteBtn = document.getElementById("testVoteBtn");
+const testVoteMsg = document.getElementById("testVoteMsg");
 function getDraftKey(serverId) {
   return serverId ? `bc_builder_state_${serverId}` : LS_KEY;
 }
@@ -80,13 +89,145 @@ async function waitForFirebaseReady(timeoutMs = 8000) {
 
   return false;
 }
+async function loadVotingConfig(serverId) {
+  const { firestore } = await loadFirebase();
+  const { doc, getDoc } = firestore;
 
+  const db = window.bcDb;
+
+  const configRef = doc(db, "servers", serverId, "private", "config");
+  const snap = await getDoc(configRef);
+
+  if (!snap.exists()) {
+    voteEnabledInput.checked = false;
+    voteHostInput.value = "";
+    votePortInput.value = "8192";
+    voteTokenInput.value = "";
+    buildVoteConfigSnippet();
+    return;
+  }
+
+  const data = snap.data() || {};
+
+  voteEnabledInput.checked = !!data.votingEnabled;
+  voteHostInput.value = data.votifierHost || "";
+  votePortInput.value = data.votifierPort || "";
+  voteTokenInput.value = data.votifierToken || "";
+  buildVoteConfigSnippet();
+}
+async function saveVotingConfig(serverId) {
+  const ownership = await assertServerOwnership(serverId);
+
+  const { firestore } = await loadFirebase();
+  const { doc, setDoc } = firestore;
+
+  const db = window.bcDb;
+  if (!db) {
+    throw new Error("Firebase database is not ready.");
+  }
+
+  const enabled = !!voteEnabledInput?.checked;
+  const host = String(voteHostInput?.value || "").trim();
+  const port = Number(votePortInput?.value || 8192);
+  const token = String(voteTokenInput?.value || "").trim();
+
+  const configRef = doc(db, "servers", serverId, "private", "config");
+
+  await setDoc(configRef, {
+    votingEnabled: enabled,
+    votifierHost: host,
+    votifierPort: port,
+    votifierToken: token,
+    votifierServiceName: "blockclub",
+    voteCooldownHours: 24,
+    ownerUid: ownership.user.uid
+  }, { merge: true });
+
+  const serverRef = doc(db, "servers", serverId);
+
+  await setDoc(serverRef, {
+    votingEnabled: enabled
+  }, { merge: true });
+  buildVoteConfigSnippet();
+}
+saveVotingBtn?.addEventListener("click", async () => {
+  const serverId = serverIdFromUrl;
+
+  if (!serverId) {
+    alert("Publish your server first before configuring voting.");
+    return;
+  }
+
+  try {
+    await saveVotingConfig(serverId);
+    alert("Voting settings saved.");
+  } catch (err) {
+    console.error(err);
+    alert("Failed to save voting settings.");
+  }
+});
+function generateSecureToken(length = 48) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("").slice(0, length);
+}
+votePortInput?.addEventListener("input", buildVoteConfigSnippet);
+voteTokenInput?.addEventListener("input", buildVoteConfigSnippet);
+
+function buildVoteConfigSnippet() {
+  const port = String(votePortInput?.value || "8192").trim() || "8192";
+  const token = String(voteTokenInput?.value || "").trim();
+
+  if (!voteConfigPreview) return;
+
+  if (!token) {
+    voteConfigPreview.value = "Generate a token to see the config snippet.";
+    return;
+  }
+
+  voteConfigPreview.value =
+`host = "0.0.0.0"
+port = ${port}
+disable-v1-protocol = false
+
+[tokens]
+blockclub = "${token}"
+
+[forwarding]
+method = "none"`;
+}
 function clearStateObject() {
   state.blocks = [];
   state.decorations = [];
   state.selectedDecoId = null;
   state.selectedBlockId = null;
 }
+generateVoteTokenBtn?.addEventListener("click", () => {
+  const token = generateSecureToken(48);
+  voteTokenInput.value = token;
+  buildVoteConfigSnippet();
+});
+
+copyVoteConfigBtn?.addEventListener("click", async () => {
+  const text = String(voteConfigPreview?.value || "").trim();
+
+  if (!text || text === "Generate a token to see the config snippet.") {
+    alert("Generate a token first.");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    copyVoteConfigBtn.textContent = "Copied!";
+    setTimeout(() => {
+      copyVoteConfigBtn.textContent = "Copy NuVotifier Config";
+    }, 900);
+  } catch (err) {
+    console.error("Failed to copy config snippet:", err);
+    alert("Failed to copy config snippet.");
+  }
+});
 
 let decoMode = false;
 let history = [];
@@ -1406,6 +1547,55 @@ async function assertServerOwnership(serverId) {
 
   return { user, serverData };
 }
+testVoteBtn?.addEventListener("click", async () => {
+  const routedServerId = serverIdFromUrl;
+
+  if (!routedServerId) {
+    alert("Publish your server first before testing voting.");
+    return;
+  }
+
+  try {
+    testVoteBtn.disabled = true;
+    testVoteBtn.textContent = "Sending...";
+    if (testVoteMsg) testVoteMsg.textContent = "";
+
+    await saveVotingConfig(routedServerId);
+
+    const res = await fetch("https://us-central1-blockclub-4742a.cloudfunctions.net/testVote", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        serverId: routedServerId
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(data?.error || "Test vote failed.");
+    }
+
+    if (testVoteMsg) {
+      testVoteMsg.textContent = "Test vote sent successfully. Check your Minecraft server console.";
+    }
+
+    testVoteBtn.textContent = "Sent!";
+    setTimeout(() => {
+      testVoteBtn.textContent = "Send Test Vote";
+      testVoteBtn.disabled = false;
+    }, 1200);
+  } catch (err) {
+    console.error("Test vote failed:", err);
+    if (testVoteMsg) {
+      testVoteMsg.textContent = err.message || "Test vote failed.";
+    }
+    testVoteBtn.textContent = "Send Test Vote";
+    testVoteBtn.disabled = false;
+  }
+});
 
 async function loadDraftPage(serverId) {
   const { firestore } = await loadFirebase();
@@ -1459,7 +1649,7 @@ async function loadState() {
   if (routedServerId) {
     try {
       const { serverData } = await assertServerOwnership(routedServerId);
-
+      await loadVotingConfig(routedServerId);
       const nameEl = document.getElementById("serverNameInput");
       const ipEl = document.getElementById("serverIpInput");
 

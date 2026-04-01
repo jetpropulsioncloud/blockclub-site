@@ -70,6 +70,58 @@
 
           <div class="hr"></div>
 
+          <div class="panel-title">Voting Setup</div>
+
+          <div class="stack">
+            <label class="field checkbox-field">
+              <span class="label">Enable BlockClub Voting</span>
+              <input type="checkbox" id="voteEnabledInput" />
+            </label>
+
+            <label class="field checkbox-field">
+              <span class="label">Votifier Host</span>
+              <input id="voteHostInput" class="control" placeholder="play.yourserver.com" />
+            </label>
+
+            <label class="field checkbox-field">
+              <span class="label">Votifier Port</span>
+              <input id="votePortInput" class="control" placeholder="8192" />
+            </label>
+
+            <label class="field checkbox-field">
+              <span class="label">Votifier Token</span>
+              <input id="voteTokenInput" class="control" placeholder="Paste your token here" />
+            </label>
+
+            <button id="saveVotingBtn" class="btn small primary" type="button">
+              Save Voting Settings
+            </button>
+            <button id="testVoteBtn" class="btn small" type="button">
+              Send Test Vote
+            </button>
+
+            <div id="testVoteMsg" class="muted small"></div>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="generateVoteTokenBtn" class="btn small" type="button">
+              Generate Token
+            </button>
+
+            <button id="copyVoteConfigBtn" class="btn small ghost" type="button">
+              Copy NuVotifier Config
+            </button>
+          </div>
+
+          <label class="field">
+            <span class="label">NuVotifier Config Snippet</span>
+            <textarea
+              id="voteConfigPreview"
+              class="control"
+              rows="8"
+              readonly
+              placeholder="Generate a token to see the config snippet."
+            ></textarea>
+          </label>
           <div class="panel-title">Tips</div>
           <ul class="bullets">
             <li>Drag blocks by their header</li>

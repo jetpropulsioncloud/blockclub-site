@@ -1011,3 +1011,49 @@ button.pill-mini:active {
   pointer-events: none;
   transform-origin: center;
 }
+.vote-username-input {
+  min-width: 220px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  caret-color: var(--text);
+  outline: none;
+}
+
+.vote-username-input::placeholder {
+  color: var(--muted);
+}
+
+.vote-username-input:focus {
+  border-color: rgba(29, 191, 115, 0.5);
+  box-shadow: 0 0 0 3px rgba(29, 191, 115, 0.12);
+}
+#spVoteUsername,
+.vote-username-input,
+input.vote-username-input {
+  min-width: 220px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line) !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a !important;
+  outline: none;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+#spVoteUsername::placeholder,
+.vote-username-input::placeholder {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+}
+
+#spVoteUsername:focus,
+.vote-username-input:focus {
+  border-color: rgba(29, 191, 115, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(29, 191, 115, 0.12);
+}
