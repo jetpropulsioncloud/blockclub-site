@@ -43,9 +43,10 @@
             Modern listings, clean ads, and featured spots for communities that deserve attention.
           </p>
 
-          <div class="search">
-            <input id="searchInput" type="text" placeholder="Search servers, modes, tags..." />
+          <div class="search" style="position:relative;">
+            <input id="searchInput" type="text" placeholder="Search servers, modes, tags..." autocomplete="off" />
             <button id="searchBtn" type="button">Search</button>
+            <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
           </div>
 
           <div class="quick">
@@ -72,13 +73,6 @@
             <button class="copy" type="button" data-copy="play.mcblockclub.com">Copy IP</button>
           </div>
         </div>
-        <div id="authArea">
-          <button id="btnOpenAuth" class="btn">Sign in</button>
-          <div id="userPill" style="display:none;">
-            <span id="userLabel"></span>
-            <button id="btnLogout" class="btn">Log out</button>
-          </div>
-        </div>
 
         <div id="authModal" style="display:none;">
           <div class="modalCard">
@@ -97,6 +91,13 @@
           </div>
         </div>
         <div class="hero-right">
+          <div id="authArea">
+            <button id="btnOpenAuth" class="btn">Sign in</button>
+            <div id="userPill" style="display:none;">
+              <span id="userLabel"></span>
+              <button id="btnLogout" class="btn">Log out</button>
+            </div>
+          </div>
           <div class="panel">
             <div class="panel-head">
               <div class="panel-title">Featured</div>
@@ -244,6 +245,7 @@
       const serverGrid = document.getElementById("serverGrid");
       const searchInput = document.getElementById("searchInput");
       const searchBtn = document.getElementById("searchBtn");
+      const searchSuggestions = document.getElementById("searchSuggestions");
       const filterButtons = Array.from(document.querySelectorAll(".filter[data-filter]"));
       const sortSelect = document.getElementById("sortSelect");
       const SORT_KEY = "bc_sort";
@@ -278,6 +280,113 @@
           .toLowerCase();
 
         return hay.includes(needle);
+      }
+      function scoreServerMatch(server, query) {
+        const q = String(query || "").trim().toLowerCase();
+        if (!q) return -1;
+
+        const name = String(server.name || "").trim().toLowerCase();
+        const ip = String(server.ip || "").trim().toLowerCase();
+        const slug = String(server.slug || "").trim().toLowerCase();
+        const mode = String(server.mode || "").trim().toLowerCase();
+        const tags = Array.isArray(server.tags)
+          ? server.tags.map((tag) => String(tag).toLowerCase())
+          : [];
+
+        if (name === q) return 1000;
+        if (slug === q) return 950;
+        if (ip === q) return 900;
+
+        if (name.startsWith(q)) return 800;
+        if (slug.startsWith(q)) return 760;
+        if (ip.startsWith(q)) return 720;
+
+        if (name.includes(q)) return 600;
+        if (slug.includes(q)) return 560;
+        if (ip.includes(q)) return 520;
+
+        if (mode.includes(q)) return 300;
+
+        const tagMatch = tags.find((tag) => tag.includes(q));
+        if (tagMatch) return 250;
+
+        return -1;
+      }
+
+      function getTopServerMatches(query, limit = 6) {
+        return servers
+          .map((server) => ({
+            server,
+            score: scoreServerMatch(server, query)
+          }))
+          .filter((item) => item.score >= 0)
+          .sort((a, b) => b.score - a.score || String(a.server.name || "").localeCompare(String(b.server.name || "")))
+          .slice(0, limit)
+          .map((item) => item.server);
+      }
+
+      function hideSuggestions() {
+        if (!searchSuggestions) return;
+        searchSuggestions.style.display = "none";
+        searchSuggestions.innerHTML = "";
+      }
+
+      function renderSuggestions(query) {
+        if (!searchSuggestions) return;
+
+        const q = String(query || "").trim().toLowerCase();
+        if (!q) {
+          hideSuggestions();
+          return;
+        }
+
+        const matches = getTopServerMatches(q, 6);
+
+        if (!matches.length) {
+          hideSuggestions();
+          return;
+        }
+
+        searchSuggestions.innerHTML = matches
+          .map((server) => {
+            const name = escapeHtml(server.name || "Untitled Server");
+            const ip = escapeHtml(server.ip || "");
+            const mode = escapeHtml(server.mode || "");
+            const id = encodeURIComponent(server.id);
+
+            return `
+              <button
+                type="button"
+                class="search-suggestion-item"
+                data-server-id="${id}"
+                style="
+                  width:100%;
+                  text-align:left;
+                  padding:12px 14px;
+                  background:#111;
+                  border:none;
+                  border-bottom:1px solid rgba(255,255,255,0.06);
+                  color:white;
+                  cursor:pointer;
+                "
+              >
+                <div style="font-weight:600;">${name}</div>
+                <div style="font-size:13px; opacity:0.75;">${ip} • ${mode}</div>
+              </button>
+            `;
+          })
+          .join("");
+
+        searchSuggestions.style.display = "block";
+
+        const buttons = searchSuggestions.querySelectorAll("[data-server-id]");
+        buttons.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const serverId = btn.getAttribute("data-server-id") || "";
+            if (!serverId) return;
+            window.location.href = `server.html?serverId=${serverId}`;
+          });
+        });
       }
       function wireListServerButtons() {
         const buttons = document.querySelectorAll(".list-server-btn");
@@ -344,7 +453,19 @@
 
       function matchesFilter(server, f) {
         if (!f || f === "all") return true;
-        return String(server.mode).toLowerCase() === f;
+
+        const needle = String(f).toLowerCase().trim();
+        const mode = String(server.mode || "").toLowerCase().trim();
+        const tags = Array.isArray(server.tags)
+          ? server.tags.map((tag) => String(tag).toLowerCase().trim())
+          : [];
+
+        if (mode === needle) return true;
+        if (mode.includes(needle)) return true;
+        if (tags.includes(needle)) return true;
+        if (tags.some((tag) => tag.includes(needle))) return true;
+
+        return false;
       }
       function getPlayerText(s) {
         if (typeof s.players === "number" && typeof s.maxPlayers === "number") {
@@ -524,15 +645,69 @@
       });
 
       function runSearch() {
-        activeQuery = (searchInput?.value || "").trim();
+        const query = (searchInput?.value || "").trim().toLowerCase();
+
+        if (!query) {
+          activeQuery = "";
+          activeFilter = "all";
+          setActiveFilterButton("all");
+          hideSuggestions();
+          applyFilters();
+          return;
+        }
+
+        const topMatches = getTopServerMatches(query, 1);
+        const bestMatch = topMatches[0] || null;
+
+        const exactMatch = servers.find((server) => {
+          const name = String(server.name || "").trim().toLowerCase();
+          const ip = String(server.ip || "").trim().toLowerCase();
+          const slug = String(server.slug || "").trim().toLowerCase();
+          return name === query || ip === query || slug === query;
+        });
+
+        if (exactMatch) {
+          window.location.href = `server.html?serverId=${encodeURIComponent(exactMatch.id)}`;
+          return;
+        }
+
+        if (bestMatch) {
+          window.location.href = `server.html?serverId=${encodeURIComponent(bestMatch.id)}`;
+          return;
+        }
+
+        activeQuery = query;
+        activeFilter = "all";
+        setActiveFilterButton("all");
+        hideSuggestions();
         applyFilters();
       }
-
       searchBtn?.addEventListener("click", runSearch);
-      searchInput?.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") runSearch();
+
+      searchInput?.addEventListener("input", () => {
+        const query = (searchInput?.value || "").trim().toLowerCase();
+        renderSuggestions(query);
+
+        activeQuery = query;
+        activeFilter = "all";
+        setActiveFilterButton("all");
+        applyFilters();
       });
 
+      searchInput?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          runSearch();
+        }
+      });
+
+      document.addEventListener("click", (e) => {
+        const searchWrap = document.querySelector(".search");
+        if (!searchWrap) return;
+        if (!searchWrap.contains(e.target)) {
+          hideSuggestions();
+        }
+      });
       const chips = Array.from(document.querySelectorAll(".chip[data-chip]"));
 
       function setActiveFilterButton(filterValue) {

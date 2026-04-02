@@ -100,8 +100,8 @@ body {
 
 .hero-inner {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: 22px;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 28px;
   align-items: start;
 }
 
@@ -287,6 +287,22 @@ h1 {
 .panel-title {
   font-weight: 900;
 }
+.hero-right {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hero-right .panel {
+  padding: 16px;
+}
+
+.hero-right .panel.mini {
+  margin-top: 0;
+}
+.hero-left {
+  max-width: 640px;
+}
 
 .badge {
   font-size: 12px;
@@ -303,6 +319,7 @@ h1 {
   border-radius: var(--soft);
   background: #fff;
   padding: 14px;
+  min-height: 240px;
 }
 
 .fc-top {
@@ -833,8 +850,20 @@ button.pill-mini:active {
 
 #authArea {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
   gap: 10px;
+  margin-bottom: 6px;
+}
+
+.hero-right {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hero-right .panel.mini {
+  margin-top: 0;
 }
 
 #userPill {
