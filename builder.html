@@ -33,15 +33,43 @@
     </div>
 
     <main class="wrap builder-shell">
-      <aside class="side">
+      <aside class="side side-left">
         <div class="panel">
+          <div class="panel-title">Server Info</div>
+            <div class="stack">
+              <label class="field">
+                <span class="label">Description</span>
+                <input
+                  id="serverDescriptionInput"
+                  class="control"
+                  type="text"
+                  maxlength="140"
+                  placeholder="One sentence that grabs attention"
+                />
+                <span class="muted small">Keep it to one strong sentence.</span>
+              </label>
+
+              <label class="field">
+                <span class="label">Tags</span>
+
+                <div class="tag-dropdown">
+                  <button id="tagDropdownBtn" class="control tag-dropdown-btn" type="button">
+                    Select tags
+                  </button>
+
+                  <div id="tagDropdownMenu" class="tag-dropdown-menu" hidden></div>
+                </div>
+
+                <span class="muted small">Pick up to 5 tags.</span>
+              </label>
+            </div>
+
+            <div class="hr"></div>
           <div class="panel-title">Blocks</div>
 
           <div class="stack">
             <button class="btn" id="addText" type="button">Add Text Box</button>
             <button class="btn" id="addImage" type="button">Add Image Box</button>
-            <button class="btn" id="addBanner" type="button">Add Banner</button>
-            <button class="btn" id="addVote" type="button">Add Vote Button</button>
           </div>
           <div class="hr"></div>
           <button class="btn primary" id="publishBtn" type="button">Publish</button>
@@ -69,59 +97,6 @@
           </div>
 
           <div class="hr"></div>
-
-          <div class="panel-title">Voting Setup</div>
-
-          <div class="stack">
-            <label class="field checkbox-field">
-              <span class="label">Enable BlockClub Voting</span>
-              <input type="checkbox" id="voteEnabledInput" />
-            </label>
-
-            <label class="field checkbox-field">
-              <span class="label">Votifier Host</span>
-              <input id="voteHostInput" class="control" placeholder="play.yourserver.com" />
-            </label>
-
-            <label class="field checkbox-field">
-              <span class="label">Votifier Port</span>
-              <input id="votePortInput" class="control" placeholder="8192" />
-            </label>
-
-            <label class="field checkbox-field">
-              <span class="label">Votifier Token</span>
-              <input id="voteTokenInput" class="control" placeholder="Paste your token here" />
-            </label>
-
-            <button id="saveVotingBtn" class="btn small primary" type="button">
-              Save Voting Settings
-            </button>
-            <button id="testVoteBtn" class="btn small" type="button">
-              Send Test Vote
-            </button>
-
-            <div id="testVoteMsg" class="muted small"></div>
-          </div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button id="generateVoteTokenBtn" class="btn small" type="button">
-              Generate Token
-            </button>
-
-            <button id="copyVoteConfigBtn" class="btn small ghost" type="button">
-              Copy NuVotifier Config
-            </button>
-          </div>
-
-          <label class="field">
-            <span class="label">NuVotifier Config Snippet</span>
-            <textarea
-              id="voteConfigPreview"
-              class="control"
-              rows="8"
-              readonly
-              placeholder="Generate a token to see the config snippet."
-            ></textarea>
-          </label>
           <div class="panel-title">Tips</div>
           <ul class="bullets">
             <li>Drag blocks by their header</li>
@@ -137,16 +112,20 @@
           <div class="server-mini">
             <div class="server-icon"></div>
             <div>
-              <div class="server-name">Example Server Name</div>
-              <div class="server-ip">play.example.net</div>
+              <div id="stageServerName" class="server-name">Example Server Name</div>
+              <div id="stageServerIp" class="server-ip">play.example.net</div>
             </div>
           </div>
 
-          <div class="pillline">
-            <span class="pillchip">Online</span>
-            <span class="pillchip">42 players</span>
-            <span class="pillchip">1,204 views</span>
+          <div id="stageTagList" class="pillline">
+            <span class="pillchip">SMP</span>
+            <span class="pillchip">PvP</span>
+            <span class="pillchip">Economy</span>
           </div>
+        </div>
+
+        <div id="stageServerDescription" class="stage-description">
+          A fresh survival world with big wars, strong teams, and a reason to come back tomorrow.
         </div>
 
         <div id="canvas" class="canvas" aria-label="Builder canvas">
@@ -159,6 +138,80 @@
           <div id="decoShield" class="deco-shield" hidden></div>
         </div>
       </section>
+      <aside class="side side-right">
+        <label class="field">
+          <span class="label">Theme</span>
+          <select id="themeSelect" class="control">
+            <option value="emerald">Emerald</option>
+            <option value="royal">Royal</option>
+            <option value="crimson">Crimson</option>
+            <option value="gold">Gold</option>
+            <option value="ocean">Ocean</option>
+            <option value="obsidian">Obsidian</option>
+          </select>
+          <span class="muted small">This theme styles the whole published server page.</span>
+        </label>
+
+        <div class="hr"></div>
+        <div class="panel">
+          <div class="panel-title">Server Settings</div>
+
+          <div class="stack">
+            <label class="field checkbox-field">
+              <span class="label">Enable Voting</span>
+              <input type="checkbox" id="voteEnabledInput" />
+            </label>
+
+            <label class="field">
+              <span class="label">Server IP</span>
+              <input id="voteHostInput" class="control" placeholder="play.yourserver.com" />
+            </label>
+
+            <label class="field">
+              <span class="label">Votifier Port</span>
+              <input id="votePortInput" class="control" placeholder="8192" />
+            </label>
+
+            <label class="field">
+              <span class="label">Votifier Token</span>
+              <input id="voteTokenInput" class="control" placeholder="Paste your token here" />
+            </label>
+
+            <button id="saveVotingBtn" class="btn small primary" type="button">
+              Save Voting Settings
+            </button>
+
+            <button id="testVoteBtn" class="btn small" type="button">
+              Send Test Vote
+            </button>
+
+            <div id="testVoteMsg" class="muted small"></div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="generateVoteTokenBtn" class="btn small" type="button">
+              Generate Token
+            </button>
+
+            <button id="copyVoteConfigBtn" class="btn small ghost" type="button">
+              Copy NuVotifier Config
+            </button>
+          </div>
+
+          <label class="field" style="margin-top: 12px;">
+            <span class="label">NuVotifier Config Snippet</span>
+            <textarea
+              id="voteConfigPreview"
+              class="control"
+              rows="8"
+              readonly
+              placeholder="Generate a token to see the config snippet."
+            ></textarea>
+          </label>
+        </div>
+      </aside>
     </main>
 
     <dialog id="exportDialog" class="dialog">

@@ -56,7 +56,14 @@ function safeParse(raw) {
     return null;
   }
 }
+function normalizeTheme(theme) {
+  const allowed = ["emerald", "royal", "crimson", "gold", "ocean", "obsidian"];
+  return allowed.includes(theme) ? theme : "emerald";
+}
 
+function applyTheme(theme) {
+  document.body.dataset.theme = normalizeTheme(theme);
+}
 function loadDraftPageData(serverId) {
   const raw = localStorage.getItem(getDraftKey(serverId));
   if (!raw) return null;
@@ -483,6 +490,8 @@ function renderPublishedPage(pageData) {
 }
 
 function renderServer(serverData, pageData) {
+  const activeTheme = normalizeTheme(pageData?.meta?.theme || serverData.theme || "emerald");
+  applyTheme(activeTheme);
   const name = serverData.name || "Untitled Server";
   const ip = serverData.ip || "No IP listed";
   const status = previewMode

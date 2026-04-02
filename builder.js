@@ -10,18 +10,51 @@ async function loadFirebase() {
 console.log("BUILDER VERSION CHECK - newest file loaded");
 const LS_KEY = "bc_builder_state_v1";
 const LAST_SERVER_ID_KEY = "bc_last_server_id";
-
+const serverDescriptionInput = document.getElementById("serverDescriptionInput");
+const stageServerName = document.getElementById("stageServerName");
+const stageServerIp = document.getElementById("stageServerIp");
+const stageServerDescription = document.getElementById("stageServerDescription");
+const stageTagList = document.getElementById("stageTagList");
 const canvas = document.getElementById("canvas");
 const blocksLayer = document.getElementById("blocksLayer");
 const decoLayer = document.getElementById("decoLayer");
+const themeSelect = document.getElementById("themeSelect");
 const homeBtn = document.getElementById("homeBtn");
 const addTextBtn = document.getElementById("addText");
 const addImageBtn = document.getElementById("addImage");
 const fontSelect = document.getElementById("fontSelect");
-const addVoteBtn = document.getElementById("addVote");
 const previewBtn = document.getElementById("previewBtn");
 const publishBtn = document.getElementById("publishBtn");
-
+const tagDropdownBtn = document.getElementById("tagDropdownBtn");
+const tagDropdownMenu = document.getElementById("tagDropdownMenu");
+const AVAILABLE_TAGS = [
+  "Survival",
+  "Economy",
+  "PvP",
+  "McMMO",
+  "Ranks",
+  "PvE",
+  "Community",
+  "SMP",
+  "Discord",
+  "Crates",
+  "Vote Rewards",
+  "Land Claim",
+  "Custom Enchants",
+  "Shops",
+  "Vanilla",
+  "Grief Prevention",
+  "Auction House",
+  "Vote",
+  "Towny",
+  "Skyblock",
+  "Votifier",
+  "Anti-Grief",
+  "Creative",
+  "Factions",
+  "Dynmap"
+];
+const MAX_SELECTED_TAGS = 5;
 const toggleDecoBtn = document.getElementById("toggleDeco");
 const addEmojiBtn = document.getElementById("addEmoji");
 const emojiInput = document.getElementById("emojiInput");
@@ -36,7 +69,6 @@ const copyExport = document.getElementById("copyExport");
 const MAX_TEXT_BLOCKS = 5;
 const MAX_IMAGE_BLOCKS = 5;
 const MAX_DECOS = 10;
-const addBannerBtn = document.getElementById("addBanner");
 const params = new URLSearchParams(window.location.search);
 const serverIdFromUrl = params.get("serverId");
 const voteEnabledInput = document.getElementById("voteEnabledInput");
@@ -83,6 +115,7 @@ async function waitForAuthUser(timeoutMs = 8000) {
   if (!user || user.isAnonymous) return null;
   return user;
 }
+
 async function waitForFirebaseReady(timeoutMs = 8000) {
   const start = Date.now();
 
@@ -156,6 +189,11 @@ async function saveVotingConfig(serverId) {
   }, { merge: true });
   buildVoteConfigSnippet();
 }
+themeSelect?.addEventListener("change", () => {
+  state.meta.theme = normalizeTheme(themeSelect.value || "emerald");
+  applyTheme(state.meta.theme);
+  saveState();
+});
 saveVotingBtn?.addEventListener("click", async () => {
   const serverId = getActiveServerId();
 
@@ -172,6 +210,7 @@ saveVotingBtn?.addEventListener("click", async () => {
     alert(err?.message || "Failed to save voting settings.");
   }
 });
+
 function generateSecureToken(length = 48) {
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
@@ -204,6 +243,11 @@ blockclub = "${token}"
 method = "none"`;
 }
 function clearStateObject() {
+  state.meta = {
+    description: "",
+    tags: [],
+    theme: "emerald"
+  };
   state.blocks = [];
   state.decorations = [];
   state.selectedDecoId = null;
@@ -263,6 +307,11 @@ function sendPreviewState() {
 }
 
 const state = {
+  meta: {
+    description: "",
+    tags: [],
+    theme: "emerald"
+  },
   blocks: [],
   decorations: [],
   selectedDecoId: null,
@@ -293,6 +342,11 @@ function pxToGrid(xPx, yPx) {
 }
 function makeDraftSafeState() {
   return {
+    meta: {
+      description: String(state.meta?.description || "").trim(),
+      tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
+      theme: normalizeTheme(state.meta?.theme || "emerald")
+    },
     blocks: (state.blocks || []).map((b) => {
       const copy = { ...b };
       delete copy.dataUrl;
@@ -349,7 +403,10 @@ function renderAll() {
   blocksLayer.innerHTML = "";
   decoLayer.innerHTML = "";
 
-  for (const b of state.blocks) renderBlock(b);
+  for (const b of state.blocks) {
+    if (b.type === "banner" || b.type === "vote") continue;
+    renderBlock(b);
+  }
   for (const d of state.decorations) renderDeco(d);
 }
 
@@ -363,7 +420,13 @@ function makeBlockShell(b) {
 
   const title = document.createElement("div");
   title.className = "block-title";
-  title.textContent = b.type === "text" ? "Text Box" : "Image Box";
+    if (b.type === "text") {
+    title.textContent = "Text Box";
+  } else if (b.type === "image") {
+    title.textContent = "Image Box";
+  } else {
+    title.textContent = "Block";
+  }
 
   const actions = document.createElement("div");
   actions.className = "block-actions";
@@ -461,46 +524,6 @@ function makeBlockShell(b) {
 
   return { el, body };
 }
-function addBannerBlock() {
-  if (state.blocks.some(b => b.type === "banner")) {
-    alert("Only one banner allowed.");
-    return;
-  }
-  const b = {
-    id: uid("blk"),
-    type: "banner",
-    x: 0,
-    y: 0,
-    w: 12,
-    h: 4,
-    rot: 0,
-    dataUrl: ""
-  };
-
-  state.blocks.push(b);
-  renderAll();
-}
-function addVoteBlock() {
-  if (state.blocks.some(b => b.type === "vote")) {
-    alert("Only one vote button allowed.");
-    return;
-  }
-
-  const b = {
-    id: uid("blk"),
-    type: "vote",
-    x: 3,
-    y: 6,
-    w: 6,
-    h: 2,
-    rot: 0,
-    label: "Vote here",
-    voteUrl: ""
-  };
-
-  state.blocks.push(b);
-  renderAll();
-}
 function togglePreview(on) {
   document.body.classList.toggle("preview", on);
 }
@@ -537,6 +560,9 @@ function sanitizeHtml(dirty) {
 
 function buildPublishPayload() {
   const payload = JSON.parse(JSON.stringify(state));
+  payload.blocks = (payload.blocks || []).filter(
+    (b) => b.type !== "banner" && b.type !== "vote"
+  );
 
   for (const b of payload.blocks || []) {
     if (b.type === "text") b.html = sanitizeHtml(b.html);
@@ -638,35 +664,6 @@ async function publishToFirebase(payload) {
   const nextBlocks = [];
 
   for (const b of payload.blocks || []) {
-    if (b.type === "banner") {
-      if (b.imageUrl) {
-        bannerUrl = b.imageUrl;
-
-        const copy = { ...b };
-        delete copy.dataUrl;
-        copy.imageUrl = b.imageUrl;
-        copy.storagePath = b.storagePath;
-        nextBlocks.push(copy);
-        continue;
-      }
-
-      const dataUrl = String(b.dataUrl || "");
-      if (!dataUrl) {
-        alert("Banner needs an uploaded image before publishing.");
-        return null;
-      }
-
-      const webp = await compressToWebp(dataUrl, 1600, 0.82);
-      const storageRef = ref(st, `serverPages/${serverId}/banner.webp`);
-      bannerUrl = await uploadBlobAndGetUrl(storageRef, webp);
-
-      const copy = { ...b };
-      delete copy.dataUrl;
-      copy.imageUrl = bannerUrl;
-      nextBlocks.push(copy);
-      continue;
-    }
-
     if (b.type === "image") {
       if (b.imageUrl) {
         const copy = { ...b };
@@ -696,17 +693,14 @@ async function publishToFirebase(payload) {
     nextBlocks.push(b);
   }
 
-  if (!bannerUrl) {
-    alert("Banner is required.");
-    return null;
-  }
-
   const ownerUid = user.uid;
 
   const serverDocData = {
     ownerUid,
     name: serverName,
-    bannerUrl,
+    description: String(state.meta?.description || "").trim(),
+    tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
+    theme: normalizeTheme(state.meta?.theme || "emerald"),
     updatedAt: serverTimestamp(),
     pagePublishedAt: serverTimestamp(),
     isPublished: true
@@ -726,6 +720,11 @@ async function publishToFirebase(payload) {
   await setDoc(pageRef, {
     serverId,
     version: 1,
+    meta: {
+      description: String(state.meta?.description || "").trim(),
+      tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
+      theme: normalizeTheme(state.meta?.theme || "emerald")
+    },
     blocks: nextBlocks,
     decorations: payload.decorations || [],
     updatedAt: serverTimestamp()
@@ -789,7 +788,7 @@ function renderBlock(b) {
     body.appendChild(rte);
   }
 
-  if (b.type === "image" || b.type === "banner") {
+  if (b.type === "image") {
     const box = document.createElement("div");
     box.className = "imagebox";
 
@@ -867,74 +866,6 @@ function renderBlock(b) {
     box.appendChild(preview);
     body.appendChild(box);
   }
-
-  if (b.type === "vote") {
-    body.style.padding = "10px";
-
-    const form = document.createElement("div");
-    form.className = "form";
-
-    const field1 = document.createElement("div");
-    field1.className = "field";
-
-    const label1 = document.createElement("div");
-    label1.className = "label";
-    label1.textContent = "Button text";
-
-    const inputLabel = document.createElement("input");
-    inputLabel.className = "control";
-    inputLabel.placeholder = "Vote here";
-    inputLabel.value = b.label || "Vote here";
-
-    inputLabel.addEventListener("input", () => {
-      b.label = inputLabel.value;
-      renderAll();
-      saveState();
-    });
-
-    field1.appendChild(label1);
-    field1.appendChild(inputLabel);
-
-    const field2 = document.createElement("div");
-    field2.className = "field";
-
-    const label2 = document.createElement("div");
-    label2.className = "label";
-    label2.textContent = "Vote URL";
-
-    const inputUrl = document.createElement("input");
-    inputUrl.className = "control";
-    inputUrl.placeholder = "https://...";
-    inputUrl.value = b.voteUrl || "";
-
-    inputUrl.addEventListener("input", () => {
-      b.voteUrl = inputUrl.value;
-      renderAll();
-      saveState();
-    });
-
-    field2.appendChild(label2);
-    field2.appendChild(inputUrl);
-
-    const previewWrap = document.createElement("div");
-    previewWrap.style.marginTop = "10px";
-
-    const a = document.createElement("a");
-    a.href = (b.voteUrl || "#").trim() || "#";
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    a.className = "vote-bar";
-    a.textContent = (b.label || "Vote here").trim() || "Vote here";
-
-    previewWrap.appendChild(a);
-
-    form.appendChild(field1);
-    form.appendChild(field2);
-    form.appendChild(previewWrap);
-
-    body.appendChild(form);
-  }
-
   blocksLayer.appendChild(el);
 }
 function dataUrlToBlob(dataUrl) {
@@ -1248,7 +1179,15 @@ function setupDrag(containerEl, handleEl, item, kind) {
     window.addEventListener("pointerup", onUp);
   });
 }
+function normalizeTheme(theme) {
+  const allowed = ["emerald", "royal", "crimson", "gold", "ocean", "obsidian"];
+  return allowed.includes(theme) ? theme : "emerald";
+}
 
+function applyTheme(theme) {
+  const safeTheme = normalizeTheme(theme);
+  document.body.dataset.theme = safeTheme;
+}
 function setupResize(blockEl, handleEl, b) {
   handleEl.addEventListener("pointerdown", (e) => {
     if (decoMode) return;
@@ -1291,7 +1230,72 @@ function setupResize(blockEl, handleEl, b) {
     window.addEventListener("pointerup", onUp);
   });
 }
+function renderTagDropdown() {
+  if (!tagDropdownMenu || !tagDropdownBtn) return;
 
+  const selected = Array.isArray(state.meta?.tags) ? state.meta.tags : [];
+  tagDropdownMenu.innerHTML = "";
+
+  if (selected.length === 0) {
+    tagDropdownBtn.textContent = "Select tags";
+  } else if (selected.length === 1) {
+    tagDropdownBtn.textContent = selected[0];
+  } else {
+    tagDropdownBtn.textContent = `${selected.length} tags selected`;
+  }
+
+  for (const tag of AVAILABLE_TAGS) {
+    const row = document.createElement("label");
+    row.className = "tag-dropdown-item";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = selected.includes(tag);
+
+    checkbox.addEventListener("change", () => {
+      const current = Array.isArray(state.meta?.tags) ? [...state.meta.tags] : [];
+
+      if (checkbox.checked) {
+        if (current.length >= MAX_SELECTED_TAGS) {
+          checkbox.checked = false;
+          alert(`You can only choose up to ${MAX_SELECTED_TAGS} tags.`);
+          return;
+        }
+        current.push(tag);
+      } else {
+        const index = current.indexOf(tag);
+        if (index !== -1) current.splice(index, 1);
+      }
+
+      state.meta.tags = current;
+      renderTagDropdown();
+      syncStagePreview();
+      saveState();
+    });
+
+    const text = document.createElement("span");
+    text.textContent = tag;
+
+    row.appendChild(checkbox);
+    row.appendChild(text);
+    tagDropdownMenu.appendChild(row);
+  }
+}
+tagDropdownBtn?.addEventListener("click", () => {
+  const isHidden = tagDropdownMenu.hasAttribute("hidden");
+
+  if (isHidden) {
+    tagDropdownMenu.removeAttribute("hidden");
+  } else {
+    tagDropdownMenu.setAttribute("hidden", "");
+  }
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".tag-dropdown")) {
+    tagDropdownMenu?.setAttribute("hidden", "");
+  }
+});
 function setupDecoResize(decoEl, handleEl, d) {
   handleEl.addEventListener("pointerdown", (e) => {
     if (!decoMode) return;
@@ -1405,7 +1409,6 @@ function setDecoMode(on) {
     }
   }
 }
-
 function selectDeco(el) {
   for (const node of decoLayer.querySelectorAll(".deco")) {
     node.classList.remove("selected");
@@ -1446,19 +1449,33 @@ async function loadServerPageFromFirebase(serverId) {
 
   const pageSnap = await getDoc(doc(db, "servers", serverId, "pages", "main"));
   const pageData = pageSnap.exists() ? pageSnap.data() || {} : {};
-
+  state.meta = {
+    description: pageData?.meta?.description || serverData.description || "",
+    tags: Array.isArray(pageData?.meta?.tags) ? pageData.meta.tags : (Array.isArray(serverData.tags) ? serverData.tags : []),
+    theme: normalizeTheme(pageData?.meta?.theme || serverData.theme || "emerald")
+  };
+  if (themeSelect) {
+    themeSelect.value = state.meta.theme || "emerald";
+  }
+  applyTheme(state.meta.theme || "emerald");
   const nameEl = document.getElementById("serverNameInput");
   const ipEl = document.getElementById("serverIpInput");
 
   if (nameEl) nameEl.value = serverData.name || "";
   if (ipEl) ipEl.value = serverData.ip || "";
+  if (serverDescriptionInput) {
+    serverDescriptionInput.value = state.meta.description || "";
+  }
+
+  syncStagePreview();
 
   lockIpField(true);
 
-  clearStateObject();
   state.blocks = Array.isArray(pageData.blocks) ? pageData.blocks : [];
   state.decorations = Array.isArray(pageData.decorations) ? pageData.decorations : [];
 
+  renderAll();
+  syncStagePreview();
   return {
     ok: true,
     serverData,
@@ -1503,8 +1520,6 @@ function showBuilderAccessError(message) {
 
   if (addTextBtn) addTextBtn.disabled = true;
   if (addImageBtn) addImageBtn.disabled = true;
-  if (addBannerBtn) addBannerBtn.disabled = true;
-  if (addVoteBtn) addVoteBtn.disabled = true;
   if (addEmojiBtn) addEmojiBtn.disabled = true;
   if (toggleDecoBtn) toggleDecoBtn.disabled = true;
   if (previewBtn) previewBtn.disabled = true;
@@ -1642,12 +1657,50 @@ async function saveDraftPage(serverId) {
       serverId,
       ownerUid: ownership.user.uid,
       version: 1,
+      meta: safeState.meta,
       blocks: safeState.blocks,
       decorations: safeState.decorations,
       updatedAt: serverTimestamp()
     },
     { merge: true }
   );
+}
+function normalizeTags(tags) {
+  if (!Array.isArray(tags)) return [];
+
+  return tags
+    .map(t => String(t || "").trim())
+    .filter(t => AVAILABLE_TAGS.includes(t))
+    .filter((t, i, arr) => arr.indexOf(t) === i)
+    .slice(0, MAX_SELECTED_TAGS);
+}
+
+function syncStagePreview() {
+  applyTheme(state.meta?.theme || "emerald");
+  const serverName = String(document.getElementById("serverNameInput")?.value || "").trim();
+  const serverIp = String(document.getElementById("serverIpInput")?.value || "").trim();
+  const description = String(state.meta?.description || "").trim();
+  const tags = Array.isArray(state.meta?.tags) ? state.meta.tags : [];
+
+  if (stageServerName) {
+    stageServerName.textContent = serverName || "Example Server Name";
+  }
+
+  if (stageServerIp) {
+    stageServerIp.textContent = serverIp || "play.example.net";
+  }
+
+  if (stageServerDescription) {
+    stageServerDescription.textContent =
+      description || "A fresh survival world with big wars, strong teams, and a reason to come back tomorrow.";
+  }
+
+  if (stageTagList) {
+    const shownTags = tags.length ? tags : ["SMP", "PvP", "Economy"];
+    stageTagList.innerHTML = shownTags
+      .map(tag => `<span class="pillchip">${tag}</span>`)
+      .join("");
+  }
 }
 async function loadState() {
   const routedServerId = serverIdFromUrl;
@@ -1668,9 +1721,30 @@ async function loadState() {
 
       if (draftData) {
         clearStateObject();
+        state.meta = {
+          description: draftData?.meta?.description || "",
+          tags: Array.isArray(draftData?.meta?.tags) ? draftData.meta.tags : [],
+          theme: normalizeTheme(draftData?.meta?.theme || "emerald")
+        };
+
+        if (themeSelect) {
+          themeSelect.value = state.meta.theme || "emerald";
+        }
+        applyTheme(state.meta.theme || "emerald");
+
         state.blocks = Array.isArray(draftData.blocks) ? draftData.blocks : [];
         state.decorations = Array.isArray(draftData.decorations) ? draftData.decorations : [];
+
+        if (serverDescriptionInput) {
+          serverDescriptionInput.value = state.meta.description || "";
+        }
+
+        state.meta.tags = normalizeTags(state.meta.tags);
+        renderTagDropdown();
+
         console.log(`Loaded Firestore draft for server ${routedServerId}`);
+        renderTagDropdown();
+        syncStagePreview();
         renderAll();
         return;
       }
@@ -1704,12 +1778,24 @@ async function loadState() {
   clearStateObject();
   addTextBlock();
   addImageBlock();
+  syncStagePreview();
+  renderTagDropdown();
   renderAll();
 }
 
 function resetState() {
+  state.meta = {
+    description: "",
+    tags: [],
+    theme: "emerald"
+  };
   state.blocks = [];
   state.decorations = [];
+  if (themeSelect) themeSelect.value = "emerald";
+  applyTheme("emerald");
+  if (serverDescriptionInput) serverDescriptionInput.value = "";
+  renderTagDropdown();
+  syncStagePreview();
   renderAll();
 }
 
@@ -1741,14 +1827,6 @@ addTextBtn.addEventListener("click", () => {
 
 addImageBtn.addEventListener("click", () => {
   addImageBlock();
-  saveState();
-});
-addBannerBtn.addEventListener("click", () => {
-  addBannerBlock();
-  saveState();
-});
-addVoteBtn.addEventListener("click", () => {
-  addVoteBlock();
   saveState();
 });
 if (fontSelect) {
@@ -1823,36 +1901,40 @@ previewBtn.addEventListener("click", () => {
   }, 150);
 });
 publishBtn.addEventListener("click", async () => {
-  const hasBanner = (state.blocks || []).some(b => b.type === "banner" && (b.dataUrl || "").length > 0);
-  const hasVoteUrl = (state.blocks || []).some(b => b.type === "vote" && (b.voteUrl || "").trim().length > 0);
+  const payload = buildPublishPayload();
 
-  if (!hasBanner || !hasVoteUrl) {
-    const missing = [];
-    if (!hasBanner) missing.push("Banner (with an uploaded image)");
-    if (!hasVoteUrl) missing.push("Vote button (with a URL)");
-    alert("Before publishing, add:\n- " + missing.join("\n- "));
-    return;
+  try {
+    const result = await publishToFirebase(payload);
+    if (!result) return;
+
+    exportArea.value = JSON.stringify(
+      { serverId: result.serverId, bannerUrl: result.bannerUrl, page: payload },
+      null,
+      2
+    );
+    exportDialog.showModal();
+
+    alert(`Published! serverId: ${result.serverId}`);
+  } catch (err) {
+    console.error("PUBLISH ERROR FULL:", err);
+    console.error("PUBLISH ERROR STACK:", err?.stack);
+    alert(String(err?.message || err));
+  }
+});
+document.getElementById("serverNameInput")?.addEventListener("input", syncStagePreview);
+document.getElementById("serverIpInput")?.addEventListener("input", syncStagePreview);
+
+serverDescriptionInput?.addEventListener("input", () => {
+  let value = String(serverDescriptionInput.value || "").trim();
+
+  if (/[.!?].+[A-Za-z0-9]/.test(value)) {
+    value = value.split(/(?<=[.!?])\s+/)[0].trim();
+    serverDescriptionInput.value = value;
   }
 
-    const payload = buildPublishPayload();
-
-    try {
-      const result = await publishToFirebase(payload);
-      if (!result) return;
-
-      exportArea.value = JSON.stringify(
-        { serverId: result.serverId, bannerUrl: result.bannerUrl, page: payload },
-        null,
-        2
-      );
-      exportDialog.showModal();
-
-      alert(`Published! serverId: ${result.serverId}`);
-    } catch (err) {
-      console.error("PUBLISH ERROR FULL:", err);
-      console.error("PUBLISH ERROR STACK:", err?.stack);
-      alert(String(err?.message || err));
-    }
+  state.meta.description = value;
+  syncStagePreview();
+  saveState();
 });
 window.addEventListener("resize", () => renderAll());
 window.addEventListener("keydown", (e) => {
@@ -1861,8 +1943,25 @@ window.addEventListener("keydown", (e) => {
       history.pop();
       const prev = history[history.length - 1];
       const parsed = JSON.parse(prev);
-      state.blocks = parsed.blocks;
-      state.decorations = parsed.decorations;
+      state.meta = {
+        description: parsed.meta?.description || "",
+        tags: Array.isArray(parsed.meta?.tags) ? parsed.meta.tags : [],
+        theme: normalizeTheme(parsed.meta?.theme || "emerald")
+      };
+
+      if (themeSelect) {
+        themeSelect.value = state.meta.theme;
+      }
+      applyTheme(state.meta.theme);
+      state.blocks = parsed.blocks || [];
+      state.decorations = parsed.decorations || [];
+
+      if (serverDescriptionInput) {
+        serverDescriptionInput.value = state.meta.description || "";
+      }
+      
+      renderTagDropdown();
+      syncStagePreview();
       renderAll();
     }
   }
@@ -1870,6 +1969,10 @@ window.addEventListener("keydown", (e) => {
 homeBtn?.addEventListener("click", () => {
   window.location.href = "index.html";
 });
+applyTheme("emerald");
+if (themeSelect) {
+  themeSelect.value = "emerald";
+}
 setDecoMode(false);
 
 loadState().catch((err) => {
@@ -1877,5 +1980,7 @@ loadState().catch((err) => {
   clearStateObject();
   addTextBlock();
   addImageBlock();
+  syncStagePreview();
+  renderTagDropdown();
   renderAll();
 });
