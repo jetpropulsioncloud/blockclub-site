@@ -10,12 +10,12 @@ import {
   serverTimestamp,
   runTransaction
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-const GRID = {  
+const GRID = {
   columns: 12,
-  width: 1120,
-  rowHeight: 56,
+  width: 1360,
+  rowHeight: 64,
   gap: 12,
-  padding: 14
+  padding: 16
 };
 
 const params = new URLSearchParams(window.location.search);
@@ -42,6 +42,8 @@ const els = {
   spVoteBtn: document.getElementById("spVoteBtn"),
   spVoteMsg: document.getElementById("spVoteMsg"),
   spVotesPill: document.getElementById("spVotesPill"),
+  featuredStatus: document.getElementById("featuredStatus"),
+  featuredPlayers: document.getElementById("featuredPlayers"),
 };
 let currentViewer = null;
 let currentServerData = null;
@@ -85,7 +87,66 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+async function fetchServerStatusByIp(ip, edition = "") {
+  const rawIp = String(ip || "").trim();
+  if (!rawIp) return null;
 
+  try {
+    const isBedrock = String(edition || "").toLowerCase().includes("bedrock");
+
+    const endpoint = isBedrock
+      ? `https://api.mcsrvstat.us/bedrock/3/${encodeURIComponent(rawIp)}`
+      : `https://api.mcsrvstat.us/3/${encodeURIComponent(rawIp)}`;
+
+    const res = await fetch(endpoint);
+    if (!res.ok) {
+      throw new Error(`Status fetch failed: ${res.status}`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error("Featured status fetch failed:", err);
+    return null;
+  }
+}
+
+async function loadFeaturedBlockClubCard() {
+  if (!els.featuredStatus || !els.featuredPlayers) return;
+
+  els.featuredStatus.textContent = "Checking...";
+  els.featuredStatus.classList.remove("online");
+  els.featuredStatus.classList.add("offline");
+  els.featuredPlayers.textContent = "Checking players...";
+
+  const data = await fetchServerStatusByIp("play.mcblockclub.com");
+
+  if (!data || !data.online) {
+    els.featuredStatus.textContent = "Offline";
+    els.featuredStatus.classList.remove("online");
+    els.featuredStatus.classList.add("offline");
+    els.featuredPlayers.textContent = "0 players";
+    return;
+  }
+
+  els.featuredStatus.textContent = "Online";
+  els.featuredStatus.classList.remove("offline");
+  els.featuredStatus.classList.add("online");
+
+  const online = Number(data?.players?.online ?? 0);
+  const max = Number(data?.players?.max ?? 0);
+
+  if (Number.isFinite(online) && Number.isFinite(max) && max > 0) {
+    els.featuredPlayers.textContent = `${online}/${max} players`;
+    return;
+  }
+
+  if (Number.isFinite(online)) {
+    els.featuredPlayers.textContent = `${online} players`;
+    return;
+  }
+
+  els.featuredPlayers.textContent = "Online";
+}
 function sanitizeHtml(dirty) {
   const t = document.createElement("template");
   t.innerHTML = String(dirty || "");
@@ -143,7 +204,6 @@ function canvasHeightFromBlocks(blocks, decorations) {
 
   return GRID.padding * 2 + maxBottom * (GRID.rowHeight + GRID.gap) + 40;
 }
-
 function makeBlockShell() {
   const el = document.createElement("div");
   el.className = "pv-block";
@@ -158,7 +218,8 @@ function makeBlockShell() {
 function renderBlock(b) {
   const { el, body } = makeBlockShell();
   const { px, py, pw, ph } = gridToPx(b.x || 0, b.y || 0, b.w || 1, b.h || 1);
-
+  console.log("LIVE BLOCK DATA", b);
+  console.log("LIVE BLOCK PX", { px, py, pw, ph });
   el.style.left = `${px}px`;
   el.style.top = `${py}px`;
   el.style.width = `${pw}px`;
@@ -540,6 +601,7 @@ function renderServer(serverData, pageData) {
   renderPublishedPage(pageData);
   wireCopyIp(serverData.ip || "");
   wireUpvoteButton(serverData, currentViewer);
+  loadFeaturedBlockClubCard();
   wireMinecraftVoteButton(serverData, currentViewer);
 }
 

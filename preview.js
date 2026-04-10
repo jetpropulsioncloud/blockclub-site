@@ -4,18 +4,20 @@ const isDraft = params.get("draft") === "1";
 function getDraftKey(serverId) {
   return serverId ? `bc_builder_state_${serverId}` : "bc_builder_state_v1";
 }
-
+const GRID = {
+  columns: 12,
+  width: 1360,
+  rowHeight: 64,
+  gap: 12,
+  padding: 16
+};
 const canvas = document.getElementById("canvas");
 const note = document.getElementById("note");
 const closeBtn = document.getElementById("closeBtn");
 if (closeBtn) closeBtn.addEventListener("click", () => window.close());
 let liveState = null;
 
-function getRowH() {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue("--row").trim();
-  const n = parseInt(raw || "24", 10);
-  return Number.isFinite(n) ? n : 24;
-}
+
 async function loadDraftFromFirestore(serverId) {
   if (!window.bcDb) return null;
 
@@ -30,16 +32,15 @@ async function loadDraftFromFirestore(serverId) {
   return snap.data();
 }
 function gridToPx(x, y, w, h) {
-  const rect = canvas.getBoundingClientRect();
-  const cols = 12;
-  const colW = rect.width / cols;
-  const rowH = getRowH();
+  const usableWidth = GRID.width - GRID.padding * 2 - GRID.gap * (GRID.columns - 1);
+  const colW = usableWidth / GRID.columns;
+  const rowH = GRID.rowHeight;
 
   return {
-    left: x * colW,
-    top: y * rowH,
-    width: w * colW,
-    height: h * rowH
+    left: GRID.padding + x * (colW + GRID.gap),
+    top: GRID.padding + y * (rowH + GRID.gap),
+    width: w * colW + GRID.gap * (w - 1),
+    height: h * rowH + GRID.gap * (h - 1)
   };
 }
 

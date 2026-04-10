@@ -71,8 +71,6 @@
             <button class="btn" id="addText" type="button">Add Text Box</button>
             <button class="btn" id="addImage" type="button">Add Image Box</button>
           </div>
-          <div class="hr"></div>
-          <button class="btn primary" id="publishBtn" type="button">Publish</button>
 
           <div class="panel-title">Text style</div>
           <div class="stack">
@@ -95,6 +93,8 @@
             <input id="emojiInput" class="input" value="✨" maxlength="4" />
             <button class="btn" id="addEmoji" type="button">Add Emoji</button>
           </div>
+          <div class="hr"></div>
+          <button class="btn primary" id="publishBtn" type="button">Publish</button>
 
           <div class="hr"></div>
           <div class="panel-title">Tips</div>
@@ -149,9 +149,25 @@
             <option value="ocean">Ocean</option>
             <option value="obsidian">Obsidian</option>
           </select>
-          <span class="muted small">This theme styles the whole published server page.</span>
-        </label>
 
+          <div id="customThemeControls" style="margin-top:10px;">
+            <button id="addBackgroundBtn" type="button" class="btn small">
+              Add your own background
+            </button>
+
+            <input id="backgroundInput" type="file" accept="image/*" hidden />
+
+            <button
+              id="removeBackgroundBtn"
+              type="button"
+              class="btn small ghost"
+              style="margin-top:8px;"
+            >
+              Remove background
+            </button>
+          </div>
+
+        </label>
         <div class="hr"></div>
         <div class="panel">
           <div class="panel-title">Server Settings</div>

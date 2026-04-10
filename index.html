@@ -120,8 +120,8 @@
               </div>
 
               <div class="fc-bottom">
-                <div class="status online">Online</div>
-                <div class="players">24 players</div>
+                <div id="featuredStatus" class="status offline">Checking...</div>
+                <div id="featuredPlayers" class="players">Checking players...</div>
               </div>
 
               <a class="btn small" href="#advertise">Get featured like this</a>
@@ -246,6 +246,8 @@
       const searchInput = document.getElementById("searchInput");
       const searchBtn = document.getElementById("searchBtn");
       const searchSuggestions = document.getElementById("searchSuggestions");
+      const featuredStatus = document.getElementById("featuredStatus");
+      const featuredPlayers = document.getElementById("featuredPlayers");
       const filterButtons = Array.from(document.querySelectorAll(".filter[data-filter]"));
       const sortSelect = document.getElementById("sortSelect");
       const SORT_KEY = "bc_sort";
@@ -256,6 +258,7 @@
       let activeQuery = "";
 
       let servers = [];
+      let isHydratingLivePlayers = false; 
 
       function escapeHtml(str) {
         return String(str)
@@ -478,6 +481,146 @@
 
         return "—";
       }
+      async function fetchLiveServerStatus(server) {
+        const rawIp = String(server.ip || "").trim();
+        if (!rawIp) return null;
+
+        try {
+          const isBedrock = String(server.edition || server.platform || "")
+            .toLowerCase()
+            .includes("bedrock");
+
+          const endpoint = isBedrock
+            ? `https://api.mcsrvstat.us/bedrock/3/${encodeURIComponent(rawIp)}`
+            : `https://api.mcsrvstat.us/3/${encodeURIComponent(rawIp)}`;
+
+          const res = await fetch(endpoint);
+          if (!res.ok) throw new Error(`status ${res.status}`);
+
+          const data = await res.json();
+          return data;
+        } catch (err) {
+          console.error("live server status failed:", rawIp, err);
+          return null;
+        }
+      }
+
+      function updateHomepageCardStatus(serverId, data) {
+        const statusEl = document.querySelector(`[data-status-id="${CSS.escape(serverId)}"]`);
+        const playersEl = document.querySelector(`[data-players-id="${CSS.escape(serverId)}"]`);
+
+        if (!statusEl || !playersEl || !data) return;
+
+        if (!data.online) {
+          statusEl.classList.remove("online");
+          statusEl.classList.add("offline");
+          statusEl.textContent = "Offline";
+          playersEl.textContent = "0 players";
+          return;
+        }
+
+        statusEl.classList.remove("offline");
+        statusEl.classList.add("online");
+        statusEl.textContent = "Online";
+
+        const online = Number(data?.players?.online ?? 0);
+        const max = Number(data?.players?.max ?? 0);
+
+        if (Number.isFinite(online) && Number.isFinite(max) && max > 0) {
+          playersEl.textContent = `${online}/${max} players`;
+          return;
+        }
+
+        if (Number.isFinite(online)) {
+          playersEl.textContent = `${online} players`;
+          return;
+        }
+
+        playersEl.textContent = "Online";
+      }
+
+      async function hydrateHomepageLiveStatus(list) {
+        if (isHydratingLivePlayers) return;
+        isHydratingLivePlayers = true;
+
+        try {
+          const jobs = list.map(async (server) => {
+            const data = await fetchLiveServerStatus(server);
+            updateHomepageCardStatus(server.id, data);
+
+            const target = servers.find((s) => s.id === server.id);
+            if (!target || !data) return;
+
+            if (!data.online) {
+              target.status = "offline";
+              target.players = 0;
+              target.maxPlayers = typeof target.maxPlayers === "number" ? target.maxPlayers : 0;
+              return;
+            }
+
+            target.status = "online";
+
+            const online = Number(data?.players?.online ?? 0);
+            const max = Number(data?.players?.max ?? 0);
+
+            target.players = Number.isFinite(online) ? online : 0;
+            if (Number.isFinite(max) && max > 0) {
+              target.maxPlayers = max;
+            }
+          });
+
+          await Promise.allSettled(jobs);
+
+          if (activeSort === "players") {
+            renderServers(sortServers(
+              servers
+                .filter((s) => matchesFilter(s, activeFilter))
+                .filter((s) => matchesQuery(s, activeQuery))
+            ));
+          }
+        } finally {
+          isHydratingLivePlayers = false;
+        }
+      }
+      async function hydrateFeaturedBlockClubCard() {
+        if (!featuredStatus || !featuredPlayers) return;
+
+        featuredStatus.textContent = "Checking...";
+        featuredStatus.classList.remove("online");
+        featuredStatus.classList.add("offline");
+        featuredPlayers.textContent = "Checking players...";
+
+        const data = await fetchLiveServerStatus({
+          ip: "play.mcblockclub.com"
+        });
+
+        if (!data || !data.online) {
+          featuredStatus.textContent = "Offline";
+          featuredStatus.classList.remove("online");
+          featuredStatus.classList.add("offline");
+          featuredPlayers.textContent = "0 players";
+          return;
+        }
+
+        featuredStatus.textContent = "Online";
+        featuredStatus.classList.remove("offline");
+        featuredStatus.classList.add("online");
+
+        const online = Number(data?.players?.online ?? 0);
+        const max = Number(data?.players?.max ?? 0);
+
+        if (Number.isFinite(online) && Number.isFinite(max) && max > 0) {
+          featuredPlayers.textContent = `${online}/${max} players`;
+          return;
+        }
+
+        if (Number.isFinite(online)) {
+          featuredPlayers.textContent = `${online} players`;
+          return;
+        }
+
+        featuredPlayers.textContent = "Online";
+      }
       function renderServers(list) {
         if (!serverGrid) return;
 
@@ -531,10 +674,18 @@
                       <div class="card-sub">${escapeHtml(s.ip)}</div>
                     </div>
                     <div class="right">
-                      <div class="status ${statusClass}">
+                      <div
+                        class="status ${statusClass}"
+                        data-status-id="${escapeHtml(s.id)}"
+                      >
                         ${s.status === "online" ? "Online" : "Offline"}
                       </div>
-                      <div class="muted">${escapeHtml(playersText)}</div>
+                      <div
+                        class="muted"
+                        data-players-id="${escapeHtml(s.id)}"
+                      >
+                        ${escapeHtml(playersText)}
+                      </div>
                     </div>
                   </div>
 
@@ -575,6 +726,8 @@
         wireCopyButtons();
         wireViewButtons();
         wireServerCards();
+        hydrateHomepageLiveStatus(list);
+        hydrateFeaturedBlockClubCard();
       }
 
       function wireCopyButtons() {

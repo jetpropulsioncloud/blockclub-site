@@ -7,6 +7,13 @@ async function loadFirebase() {
   fb = { firestore, storage };
   return fb;
 }
+const GRID = {
+  columns: 12,
+  width: 1360,
+  rowHeight: 64,
+  gap: 12,
+  padding: 16
+};
 console.log("BUILDER VERSION CHECK - newest file loaded");
 const LS_KEY = "bc_builder_state_v1";
 const LAST_SERVER_ID_KEY = "bc_last_server_id";
@@ -19,6 +26,10 @@ const canvas = document.getElementById("canvas");
 const blocksLayer = document.getElementById("blocksLayer");
 const decoLayer = document.getElementById("decoLayer");
 const themeSelect = document.getElementById("themeSelect");
+const customThemeControls = document.getElementById("customThemeControls");
+const addBackgroundBtn = document.getElementById("addBackgroundBtn");
+const backgroundInput = document.getElementById("backgroundInput");
+const removeBackgroundBtn = document.getElementById("removeBackgroundBtn");
 const homeBtn = document.getElementById("homeBtn");
 const addTextBtn = document.getElementById("addText");
 const addImageBtn = document.getElementById("addImage");
@@ -192,6 +203,8 @@ async function saveVotingConfig(serverId) {
 themeSelect?.addEventListener("change", () => {
   state.meta.theme = normalizeTheme(themeSelect.value || "emerald");
   applyTheme(state.meta.theme);
+  syncCustomThemeControls();
+  applyCanvasBackground();
   saveState();
 });
 saveVotingBtn?.addEventListener("click", async () => {
@@ -246,7 +259,9 @@ function clearStateObject() {
   state.meta = {
     description: "",
     tags: [],
-    theme: "emerald"
+    theme: "emerald",
+    backgroundStoragePath: "",
+    backgroundUrl: ""
   };
   state.blocks = [];
   state.decorations = [];
@@ -310,7 +325,9 @@ const state = {
   meta: {
     description: "",
     tags: [],
-    theme: "emerald"
+    theme: "emerald",
+    backgroundUrl: "",
+    backgroundStoragePath: ""
   },
   blocks: [],
   decorations: [],
@@ -324,9 +341,10 @@ function uid(prefix) {
 
 function getGrid() {
   const rect = canvas.getBoundingClientRect();
-  const cols = 12;
-  const colW = rect.width / cols;
-  const rowH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--row"), 10) || 24;
+  const cols = GRID.columns;
+  const usableWidth = GRID.width - GRID.padding * 2 - GRID.gap * (GRID.columns - 1);
+  const colW = usableWidth / cols;
+  const rowH = GRID.rowHeight;
   return { rect, cols, colW, rowH };
 }
 
@@ -336,8 +354,8 @@ function clamp(n, min, max) {
 
 function pxToGrid(xPx, yPx) {
   const { cols, colW, rowH } = getGrid();
-  const gx = Math.round(xPx / colW);
-  const gy = Math.round(yPx / rowH);
+  const gx = Math.round((xPx - GRID.padding) / (colW + GRID.gap));
+  const gy = Math.round((yPx - GRID.padding) / (rowH + GRID.gap));
   return { x: clamp(gx, 0, cols - 1), y: clamp(gy, 0, 999) };
 }
 function makeDraftSafeState() {
@@ -345,7 +363,9 @@ function makeDraftSafeState() {
     meta: {
       description: String(state.meta?.description || "").trim(),
       tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
-      theme: normalizeTheme(state.meta?.theme || "emerald")
+      theme: normalizeTheme(state.meta?.theme || "emerald"),  
+      backgroundUrl: String(state.meta?.backgroundUrl || "").trim(),
+      backgroundStoragePath: String(state.meta?.backgroundStoragePath || "").trim()
     },
     blocks: (state.blocks || []).map((b) => {
       const copy = { ...b };
@@ -356,7 +376,31 @@ function makeDraftSafeState() {
   };
 }
 let draftSaveTimer = null;
+function syncCustomThemeControls() {
+  if (customThemeControls) {
+    customThemeControls.style.display = "block";
+  }
+}
+function applyCanvasBackground() {
+  const bg = String(state.meta?.backgroundUrl || "").trim();
 
+  if (!canvas) return;
+
+  if (!bg) {
+    canvas.style.backgroundImage = "";
+    canvas.style.backgroundSize = "";
+    canvas.style.backgroundPosition = "";
+    canvas.style.backgroundRepeat = "";
+    canvas.style.backgroundColor = "";
+    return;
+  }
+
+  canvas.style.backgroundImage = `linear-gradient(rgba(255,255,255,0.18), rgba(255,255,255,0.18)), url('${bg}')`;
+  canvas.style.backgroundSize = "cover";
+  canvas.style.backgroundPosition = "center";
+  canvas.style.backgroundRepeat = "no-repeat";
+  canvas.style.backgroundColor = "#dfe4ee";
+}
 function saveState() {
   try {
     const snapshot = JSON.stringify(makeDraftSafeState());
@@ -383,19 +427,20 @@ function saveState() {
   } catch (err) {
     console.error("Failed to save builder draft:", err);
   }
-}function sizePxToGrid(wPx, hPx) {
+}
+function sizePxToGrid(wPx, hPx) {
   const { cols, colW, rowH } = getGrid();
-  const gw = Math.round(wPx / colW);
-  const gh = Math.round(hPx / rowH);
+  const gw = Math.round((wPx + GRID.gap) / (colW + GRID.gap));
+  const gh = Math.round((hPx + GRID.gap) / (rowH + GRID.gap));
   return { w: clamp(gw, 1, cols), h: clamp(gh, 2, 999) };
 }
 
 function gridToPx(x, y, w, h) {
   const { cols, colW, rowH } = getGrid();
-  const px = x * colW;
-  const py = y * rowH;
-  const pw = (w * colW);
-  const ph = (h * rowH);
+  const px = GRID.padding + x * (colW + GRID.gap);
+  const py = GRID.padding + y * (rowH + GRID.gap);
+  const pw = w * colW + GRID.gap * (w - 1);
+  const ph = h * rowH + GRID.gap * (h - 1);
   return { px, py, pw, ph, cols, colW, rowH };
 }
 
@@ -692,6 +737,13 @@ async function publishToFirebase(payload) {
 
     nextBlocks.push(b);
   }
+  let backgroundUrl = String(state.meta?.backgroundUrl || "").trim();
+
+  if (backgroundUrl.startsWith("data:")) {
+    const webp = await compressToWebp(backgroundUrl, 1600, 0.82);
+    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/main.webp`);
+    backgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
+  }
 
   const ownerUid = user.uid;
 
@@ -723,7 +775,8 @@ async function publishToFirebase(payload) {
     meta: {
       description: String(state.meta?.description || "").trim(),
       tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
-      theme: normalizeTheme(state.meta?.theme || "emerald")
+      theme: normalizeTheme(state.meta?.theme || "emerald"),
+      backgroundUrl
     },
     blocks: nextBlocks,
     decorations: payload.decorations || [],
@@ -732,6 +785,9 @@ async function publishToFirebase(payload) {
 
   localStorage.setItem(LAST_SERVER_ID_KEY, serverId);
   replaceUrlServerId(serverId);
+  state.meta.backgroundUrl = backgroundUrl;
+  syncCustomThemeControls();
+  applyCanvasBackground();
 
   lockIpField(true);
   const usedPaths = nextBlocks
@@ -1209,7 +1265,7 @@ function setupResize(blockEl, handleEl, b) {
       const nextW = Math.max(80, startW + dx);
       const nextH = Math.max(120, startH + dy);
 
-      const g = sizePxToGrid(nextW, nextH);
+      const g = sizePxToGrid(nextW, nextH, b.type);
       b.w = g.w;
       b.h = g.h;
 
@@ -1451,13 +1507,19 @@ async function loadServerPageFromFirebase(serverId) {
   const pageData = pageSnap.exists() ? pageSnap.data() || {} : {};
   state.meta = {
     description: pageData?.meta?.description || serverData.description || "",
-    tags: Array.isArray(pageData?.meta?.tags) ? pageData.meta.tags : (Array.isArray(serverData.tags) ? serverData.tags : []),
-    theme: normalizeTheme(pageData?.meta?.theme || serverData.theme || "emerald")
+    tags: Array.isArray(pageData?.meta?.tags)
+      ? pageData.meta.tags
+      : (Array.isArray(serverData.tags) ? serverData.tags : []),
+    theme: normalizeTheme(pageData?.meta?.theme || serverData.theme || "emerald"),
+    backgroundUrl: String(pageData?.meta?.backgroundUrl || "").trim(),
+    backgroundStoragePath: ""
   };
   if (themeSelect) {
     themeSelect.value = state.meta.theme || "emerald";
   }
   applyTheme(state.meta.theme || "emerald");
+  syncCustomThemeControls();
+  applyCanvasBackground();
   const nameEl = document.getElementById("serverNameInput");
   const ipEl = document.getElementById("serverIpInput");
 
@@ -1724,13 +1786,17 @@ async function loadState() {
         state.meta = {
           description: draftData?.meta?.description || "",
           tags: Array.isArray(draftData?.meta?.tags) ? draftData.meta.tags : [],
-          theme: normalizeTheme(draftData?.meta?.theme || "emerald")
+          theme: normalizeTheme(draftData?.meta?.theme || "emerald"),
+          backgroundUrl: String(draftData?.meta?.backgroundUrl || "").trim(),
+          backgroundStoragePath: String(draftData?.meta?.backgroundStoragePath || "").trim()
         };
 
         if (themeSelect) {
           themeSelect.value = state.meta.theme || "emerald";
         }
         applyTheme(state.meta.theme || "emerald");
+        syncCustomThemeControls();
+        applyCanvasBackground();
 
         state.blocks = Array.isArray(draftData.blocks) ? draftData.blocks : [];
         state.decorations = Array.isArray(draftData.decorations) ? draftData.decorations : [];
@@ -1745,6 +1811,8 @@ async function loadState() {
         console.log(`Loaded Firestore draft for server ${routedServerId}`);
         renderTagDropdown();
         syncStagePreview();
+        syncCustomThemeControls();
+        applyCanvasBackground();
         renderAll();
         return;
       }
@@ -1787,7 +1855,9 @@ function resetState() {
   state.meta = {
     description: "",
     tags: [],
-    theme: "emerald"
+    theme: "emerald",
+    backgroundUrl: "",
+    backgroundStoragePath: ""
   };
   state.blocks = [];
   state.decorations = [];
@@ -1797,6 +1867,8 @@ function resetState() {
   renderTagDropdown();
   syncStagePreview();
   renderAll();
+  syncCustomThemeControls();
+  applyCanvasBackground();
 }
 
 function exportState() {
@@ -1946,7 +2018,9 @@ window.addEventListener("keydown", (e) => {
       state.meta = {
         description: parsed.meta?.description || "",
         tags: Array.isArray(parsed.meta?.tags) ? parsed.meta.tags : [],
-        theme: normalizeTheme(parsed.meta?.theme || "emerald")
+        theme: normalizeTheme(parsed.meta?.theme || "emerald"),
+        backgroundUrl: String(parsed.meta?.backgroundUrl || "").trim(),
+        backgroundStoragePath: String(parsed.meta?.backgroundStoragePath || "").trim()
       };
 
       if (themeSelect) {
@@ -1963,11 +2037,72 @@ window.addEventListener("keydown", (e) => {
       renderTagDropdown();
       syncStagePreview();
       renderAll();
+      syncCustomThemeControls();
+      applyCanvasBackground();
     }
   }
 });
 homeBtn?.addEventListener("click", () => {
   window.location.href = "index.html";
+});
+addBackgroundBtn?.addEventListener("click", () => {
+  backgroundInput?.click();
+});
+
+backgroundInput?.addEventListener("change", async () => {
+  const file = backgroundInput?.files?.[0];
+  if (!file) return;
+
+  try {
+
+    const routedServerId = serverIdFromUrl;
+
+    if (!routedServerId) {
+      const dataUrl = await fileToDataUrl(file);
+      state.meta.backgroundUrl = dataUrl;
+      state.meta.backgroundStoragePath = "";
+      syncCustomThemeControls();
+      applyCanvasBackground();
+      saveState();
+      return;
+    }
+
+    if (state.meta.backgroundStoragePath) {
+      await deleteStorageFile(state.meta.backgroundStoragePath);
+    }
+
+    const { imageUrl, storagePath } = await uploadDraftImage(
+      file,
+      routedServerId,
+      `background_${Date.now()}`
+    );
+
+    state.meta.backgroundUrl = imageUrl;
+    state.meta.backgroundStoragePath = storagePath;
+
+    syncCustomThemeControls();
+    applyCanvasBackground();
+    saveState();
+  } catch (err) {
+    console.error("Background upload failed:", err);
+  } finally {
+    if (backgroundInput) backgroundInput.value = "";
+  }
+});
+
+removeBackgroundBtn?.addEventListener("click", async () => {
+  try {
+    if (state.meta.backgroundStoragePath) {
+      await deleteStorageFile(state.meta.backgroundStoragePath);
+    }
+  } catch (err) {
+    console.warn("Background delete failed:", err);
+  }
+
+  state.meta.backgroundUrl = "";
+  state.meta.backgroundStoragePath = "";
+  applyCanvasBackground();
+  saveState();
 });
 applyTheme("emerald");
 if (themeSelect) {
@@ -1982,5 +2117,8 @@ loadState().catch((err) => {
   addImageBlock();
   syncStagePreview();
   renderTagDropdown();
+  syncCustomThemeControls();
+  applyCanvasBackground();
+  applyCanvasBackground();
   renderAll();
 });
