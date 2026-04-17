@@ -74,11 +74,11 @@ function loadDraftPageData(serverId) {
   if (!parsed) return null;
 
   return {
+    meta: parsed.meta || {},
     blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [],
     decorations: Array.isArray(parsed.decorations) ? parsed.decorations : []
   };
 }
-
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -86,6 +86,58 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+function clearBackgroundStyles(el) {
+  if (!el) return;
+  el.style.backgroundImage = "";
+  el.style.backgroundSize = "";
+  el.style.backgroundPosition = "";
+  el.style.backgroundRepeat = "";
+  el.style.backgroundColor = "";
+}
+
+function applyBackgroundStyles(el, bg, overlay = "rgba(255,255,255,0.18)") {
+  if (!el || !bg) return;
+
+  el.style.backgroundImage = `linear-gradient(${overlay}, ${overlay}), url("${bg}")`;
+  el.style.backgroundSize = "cover";
+  el.style.backgroundPosition = "center";
+  el.style.backgroundRepeat = "no-repeat";
+  el.style.backgroundColor = "#dfe4ee";
+}
+
+function getServerShellTarget() {
+  return (
+    document.querySelector("#serverPage .cover") ||
+    document.querySelector(".cover") ||
+    els.serverPage ||
+    null
+  );
+}
+
+function applyPublishedBackgrounds(pageData) {
+  const shell = getServerShellTarget();
+  const page = document.body;
+
+  clearBackgroundStyles(els.pageCanvas);
+  if (shell && shell !== els.pageCanvas) clearBackgroundStyles(shell);
+  clearBackgroundStyles(page);
+
+  const canvasBg = String(pageData?.meta?.canvasBackgroundUrl || "").trim();
+  const shellBg = String(pageData?.meta?.shellBackgroundUrl || "").trim();
+  const pageBg = String(pageData?.meta?.pageBackgroundUrl || "").trim();
+
+  if (canvasBg) {
+    applyBackgroundStyles(els.pageCanvas, canvasBg);
+  }
+
+  if (shellBg && shell !== els.pageCanvas) {
+    applyBackgroundStyles(shell, shellBg);
+  }
+
+  if (pageBg) {
+    applyBackgroundStyles(page, pageBg, "rgba(255,255,255,0.08)");
+  }
 }
 async function fetchServerStatusByIp(ip, edition = "") {
   const rawIp = String(ip || "").trim();
@@ -241,7 +293,7 @@ function renderBlock(b) {
 
     const src = String(b.imageUrl || b.dataUrl || "").trim();
     if (src) {
-      img.style.backgroundImage = `url("${escapeHtml(src)}")`;
+      img.style.backgroundImage = `url("${src}")`;
     }
 
     body.appendChild(img);
@@ -553,6 +605,7 @@ function renderPublishedPage(pageData) {
 function renderServer(serverData, pageData) {
   const activeTheme = normalizeTheme(pageData?.meta?.theme || serverData.theme || "emerald");
   applyTheme(activeTheme);
+  applyPublishedBackgrounds(pageData);
   const name = serverData.name || "Untitled Server";
   const ip = serverData.ip || "No IP listed";
   const status = previewMode

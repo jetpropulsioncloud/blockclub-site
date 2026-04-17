@@ -151,22 +151,35 @@
           </select>
 
           <div id="customThemeControls" style="margin-top:10px;">
-            <button id="addBackgroundBtn" type="button" class="btn small">
-              Add your own background
-            </button>
+            <div style="display:grid; gap:12px;">
+              <div>
+                <div style="font-weight:800; font-size:13px; margin-bottom:6px;">Canvas background</div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                  <button id="addCanvasBackgroundBtn" type="button" class="btn small">Add canvas background</button>
+                  <button id="removeCanvasBackgroundBtn" type="button" class="btn small ghost">Remove</button>
+                </div>
+                <input id="canvasBackgroundInput" type="file" accept="image/*" hidden />
+              </div>
 
-            <input id="backgroundInput" type="file" accept="image/*" hidden />
+              <div>
+                <div style="font-weight:800; font-size:13px; margin-bottom:6px;">Shell background</div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                  <button id="addShellBackgroundBtn" type="button" class="btn small">Add shell background</button>
+                  <button id="removeShellBackgroundBtn" type="button" class="btn small ghost">Remove</button>
+                </div>
+                <input id="shellBackgroundInput" type="file" accept="image/*" hidden />
+              </div>
 
-            <button
-              id="removeBackgroundBtn"
-              type="button"
-              class="btn small ghost"
-              style="margin-top:8px;"
-            >
-              Remove background
-            </button>
+              <div>
+                <div style="font-weight:800; font-size:13px; margin-bottom:6px;">Whole page background</div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                  <button id="addPageBackgroundBtn" type="button" class="btn small">Add page background</button>
+                  <button id="removePageBackgroundBtn" type="button" class="btn small ghost">Remove</button>
+                </div>
+                <input id="pageBackgroundInput" type="file" accept="image/*" hidden />
+              </div>
+            </div>
           </div>
-
         </label>
         <div class="hr"></div>
         <div class="panel">

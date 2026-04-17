@@ -51,7 +51,56 @@ function safeParse(raw) {
     return null;
   }
 }
+function clearBackgroundStyles(el) {
+  if (!el) return;
+  el.style.backgroundImage = "";
+  el.style.backgroundSize = "";
+  el.style.backgroundPosition = "";
+  el.style.backgroundRepeat = "";
+  el.style.backgroundColor = "";
+}
 
+function applyBackgroundStyles(el, bg, overlay = "rgba(255,255,255,0.18)") {
+  if (!el || !bg) return;
+  el.style.backgroundImage = `linear-gradient(${overlay}, ${overlay}), url('${bg}')`;
+  el.style.backgroundSize = "cover";
+  el.style.backgroundPosition = "center";
+  el.style.backgroundRepeat = "no-repeat";
+  el.style.backgroundColor = "#dfe4ee";
+}
+
+function getPreviewShellTarget() {
+  return (
+    document.querySelector(".preview-stage") ||
+    canvas?.parentElement ||
+    null
+  );
+}
+
+function applyPreviewBackgrounds(stateToUse) {
+  const shell = getPreviewShellTarget();
+  const page = document.body;
+
+  clearBackgroundStyles(canvas);
+  if (shell && shell !== canvas) clearBackgroundStyles(shell);
+  clearBackgroundStyles(page);
+
+  const canvasBg = String(stateToUse?.meta?.canvasBackgroundUrl || "").trim();
+  const shellBg = String(stateToUse?.meta?.shellBackgroundUrl || "").trim();
+  const pageBg = String(stateToUse?.meta?.pageBackgroundUrl || "").trim();
+
+  if (canvasBg) {
+    applyBackgroundStyles(canvas, canvasBg);
+  }
+
+  if (shellBg && shell !== canvas) {
+    applyBackgroundStyles(shell, shellBg);
+  }
+
+  if (pageBg) {
+    applyBackgroundStyles(page, pageBg, "rgba(255,255,255,0.08)");
+  }
+}
 async function render() {
   canvas.innerHTML = "";
 
@@ -65,7 +114,8 @@ async function render() {
     note.textContent = "No saved layout found. Go to the editor and click Preview.";
     return;
   }
-
+  
+  applyPreviewBackgrounds(stateToUse);
   const blocks = Array.isArray(stateToUse.blocks) ? stateToUse.blocks : [];
   const decos = Array.isArray(stateToUse.decorations) ? stateToUse.decorations : [];
 

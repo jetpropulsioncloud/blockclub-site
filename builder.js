@@ -27,9 +27,6 @@ const blocksLayer = document.getElementById("blocksLayer");
 const decoLayer = document.getElementById("decoLayer");
 const themeSelect = document.getElementById("themeSelect");
 const customThemeControls = document.getElementById("customThemeControls");
-const addBackgroundBtn = document.getElementById("addBackgroundBtn");
-const backgroundInput = document.getElementById("backgroundInput");
-const removeBackgroundBtn = document.getElementById("removeBackgroundBtn");
 const homeBtn = document.getElementById("homeBtn");
 const addTextBtn = document.getElementById("addText");
 const addImageBtn = document.getElementById("addImage");
@@ -38,6 +35,17 @@ const previewBtn = document.getElementById("previewBtn");
 const publishBtn = document.getElementById("publishBtn");
 const tagDropdownBtn = document.getElementById("tagDropdownBtn");
 const tagDropdownMenu = document.getElementById("tagDropdownMenu");
+const addCanvasBackgroundBtn = document.getElementById("addCanvasBackgroundBtn");
+const removeCanvasBackgroundBtn = document.getElementById("removeCanvasBackgroundBtn");
+const canvasBackgroundInput = document.getElementById("canvasBackgroundInput");
+
+const addShellBackgroundBtn = document.getElementById("addShellBackgroundBtn");
+const removeShellBackgroundBtn = document.getElementById("removeShellBackgroundBtn");
+const shellBackgroundInput = document.getElementById("shellBackgroundInput");
+
+const addPageBackgroundBtn = document.getElementById("addPageBackgroundBtn");
+const removePageBackgroundBtn = document.getElementById("removePageBackgroundBtn");
+const pageBackgroundInput = document.getElementById("pageBackgroundInput");
 const AVAILABLE_TAGS = [
   "Survival",
   "Economy",
@@ -260,8 +268,12 @@ function clearStateObject() {
     description: "",
     tags: [],
     theme: "emerald",
-    backgroundStoragePath: "",
-    backgroundUrl: ""
+    canvasBackgroundUrl: "",
+    canvasBackgroundStoragePath: "",
+    shellBackgroundUrl: "",
+    shellBackgroundStoragePath: "",
+    pageBackgroundUrl: "",
+    pageBackgroundStoragePath: ""
   };
   state.blocks = [];
   state.decorations = [];
@@ -326,8 +338,12 @@ const state = {
     description: "",
     tags: [],
     theme: "emerald",
-    backgroundUrl: "",
-    backgroundStoragePath: ""
+    canvasBackgroundUrl: "",
+    canvasBackgroundStoragePath: "",
+    shellBackgroundUrl: "",
+    shellBackgroundStoragePath: "",
+    pageBackgroundUrl: "",
+    pageBackgroundStoragePath: ""
   },
   blocks: [],
   decorations: [],
@@ -363,9 +379,13 @@ function makeDraftSafeState() {
     meta: {
       description: String(state.meta?.description || "").trim(),
       tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
-      theme: normalizeTheme(state.meta?.theme || "emerald"),  
-      backgroundUrl: String(state.meta?.backgroundUrl || "").trim(),
-      backgroundStoragePath: String(state.meta?.backgroundStoragePath || "").trim()
+      theme: normalizeTheme(state.meta?.theme || "emerald"),
+      canvasBackgroundUrl: String(state.meta?.canvasBackgroundUrl || "").trim(),
+      canvasBackgroundStoragePath: String(state.meta?.canvasBackgroundStoragePath || "").trim(),
+      shellBackgroundUrl: String(state.meta?.shellBackgroundUrl || "").trim(),
+      shellBackgroundStoragePath: String(state.meta?.shellBackgroundStoragePath || "").trim(),
+      pageBackgroundUrl: String(state.meta?.pageBackgroundUrl || "").trim(),
+      pageBackgroundStoragePath: String(state.meta?.pageBackgroundStoragePath || "").trim()
     },
     blocks: (state.blocks || []).map((b) => {
       const copy = { ...b };
@@ -381,26 +401,63 @@ function syncCustomThemeControls() {
     customThemeControls.style.display = "block";
   }
 }
-function applyCanvasBackground() {
-  const bg = String(state.meta?.backgroundUrl || "").trim();
+function clearBackgroundStyles(el) {
+  if (!el) return;
+  el.style.backgroundImage = "";
+  el.style.backgroundSize = "";
+  el.style.backgroundPosition = "";
+  el.style.backgroundRepeat = "";
+  el.style.backgroundColor = "";
+}
 
+function applyBackgroundStyles(el, bg, overlay = "rgba(255,255,255,0.18)") {
+  if (!el || !bg) return;
+  el.style.backgroundImage = `linear-gradient(${overlay}, ${overlay}), url('${bg}')`;
+  el.style.backgroundSize = "cover";
+  el.style.backgroundPosition = "center";
+  el.style.backgroundRepeat = "no-repeat";
+  el.style.backgroundColor = "#dfe4ee";
+}
+
+function getBuilderShellTarget() {
+  return (
+    document.querySelector(".builder-canvas-shell") ||
+    document.querySelector(".builder-shell") ||
+    document.querySelector(".builder-stage") ||
+    document.querySelector(".workbench") ||
+    document.querySelector(".editor-shell") ||
+    canvas?.parentElement ||
+    null
+  );
+}
+
+function applyCanvasBackground() {
   if (!canvas) return;
 
-  if (!bg) {
-    canvas.style.backgroundImage = "";
-    canvas.style.backgroundSize = "";
-    canvas.style.backgroundPosition = "";
-    canvas.style.backgroundRepeat = "";
-    canvas.style.backgroundColor = "";
-    return;
+  const shell = getBuilderShellTarget();
+  const page = document.body;
+
+  clearBackgroundStyles(canvas);
+  if (shell && shell !== canvas) clearBackgroundStyles(shell);
+  clearBackgroundStyles(page);
+
+  const canvasBg = String(state.meta?.canvasBackgroundUrl || "").trim();
+  const shellBg = String(state.meta?.shellBackgroundUrl || "").trim();
+  const pageBg = String(state.meta?.pageBackgroundUrl || "").trim();
+
+  if (canvasBg) {
+    applyBackgroundStyles(canvas, canvasBg);
   }
 
-  canvas.style.backgroundImage = `linear-gradient(rgba(255,255,255,0.18), rgba(255,255,255,0.18)), url('${bg}')`;
-  canvas.style.backgroundSize = "cover";
-  canvas.style.backgroundPosition = "center";
-  canvas.style.backgroundRepeat = "no-repeat";
-  canvas.style.backgroundColor = "#dfe4ee";
+  if (shellBg && shell !== canvas) {
+    applyBackgroundStyles(shell, shellBg);
+  }
+
+  if (pageBg) {
+    applyBackgroundStyles(page, pageBg, "rgba(255,255,255,0.08)");
+  }
 }
+
 function saveState() {
   try {
     const snapshot = JSON.stringify(makeDraftSafeState());
@@ -737,12 +794,26 @@ async function publishToFirebase(payload) {
 
     nextBlocks.push(b);
   }
-  let backgroundUrl = String(state.meta?.backgroundUrl || "").trim();
+  let canvasBackgroundUrl = String(state.meta?.canvasBackgroundUrl || "").trim();
+  let shellBackgroundUrl = String(state.meta?.shellBackgroundUrl || "").trim();
+  let pageBackgroundUrl = String(state.meta?.pageBackgroundUrl || "").trim();
 
-  if (backgroundUrl.startsWith("data:")) {
-    const webp = await compressToWebp(backgroundUrl, 1600, 0.82);
-    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/main.webp`);
-    backgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
+  if (canvasBackgroundUrl.startsWith("data:")) {
+    const webp = await compressToWebp(canvasBackgroundUrl, 1600, 0.82);
+    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/canvas.webp`);
+    canvasBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
+  }
+
+  if (shellBackgroundUrl.startsWith("data:")) {
+    const webp = await compressToWebp(shellBackgroundUrl, 1600, 0.82);
+    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/shell.webp`);
+    shellBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
+  }
+
+  if (pageBackgroundUrl.startsWith("data:")) {
+    const webp = await compressToWebp(pageBackgroundUrl, 1600, 0.82);
+    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/page.webp`);
+    pageBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
   }
 
   const ownerUid = user.uid;
@@ -772,12 +843,14 @@ async function publishToFirebase(payload) {
   await setDoc(pageRef, {
     serverId,
     version: 1,
-    meta: {
-      description: String(state.meta?.description || "").trim(),
-      tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
-      theme: normalizeTheme(state.meta?.theme || "emerald"),
-      backgroundUrl
-    },
+  meta: {
+    description: String(state.meta?.description || "").trim(),
+    tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
+    theme: normalizeTheme(state.meta?.theme || "emerald"),
+    canvasBackgroundUrl,
+    shellBackgroundUrl,
+    pageBackgroundUrl
+  },
     blocks: nextBlocks,
     decorations: payload.decorations || [],
     updatedAt: serverTimestamp()
@@ -785,7 +858,9 @@ async function publishToFirebase(payload) {
 
   localStorage.setItem(LAST_SERVER_ID_KEY, serverId);
   replaceUrlServerId(serverId);
-  state.meta.backgroundUrl = backgroundUrl;
+  state.meta.canvasBackgroundUrl = canvasBackgroundUrl;
+  state.meta.shellBackgroundUrl = shellBackgroundUrl;
+  state.meta.pageBackgroundUrl = pageBackgroundUrl;
   syncCustomThemeControls();
   applyCanvasBackground();
 
@@ -796,6 +871,58 @@ async function publishToFirebase(payload) {
 
   await cleanupUnusedDraftImages(serverId, usedPaths);
   return { serverId, bannerUrl };
+}
+async function handleBackgroundUpload(fileInput, urlKey, storagePathKey, filePrefix) {
+  const file = fileInput?.files?.[0];
+  if (!file) return;
+
+  try {
+    const routedServerId = serverIdFromUrl;
+
+    if (!routedServerId) {
+      const dataUrl = await fileToDataUrl(file);
+      state.meta[urlKey] = dataUrl;
+      state.meta[storagePathKey] = "";
+      applyCanvasBackground();
+      saveState();
+      return;
+    }
+
+    if (state.meta[storagePathKey]) {
+      await deleteStorageFile(state.meta[storagePathKey]);
+    }
+
+    const { imageUrl, storagePath } = await uploadDraftImage(
+      file,
+      routedServerId,
+      `${filePrefix}_${Date.now()}`
+    );
+
+    state.meta[urlKey] = imageUrl;
+    state.meta[storagePathKey] = storagePath;
+
+    applyCanvasBackground();
+    saveState();
+  } catch (err) {
+    console.error(`${filePrefix} upload failed:`, err);
+  } finally {
+    if (fileInput) fileInput.value = "";
+  }
+}
+
+async function handleBackgroundRemove(urlKey, storagePathKey) {
+  try {
+    if (state.meta[storagePathKey]) {
+      await deleteStorageFile(state.meta[storagePathKey]);
+    }
+  } catch (err) {
+    console.warn("Background delete failed:", err);
+  }
+
+  state.meta[urlKey] = "";
+  state.meta[storagePathKey] = "";
+  applyCanvasBackground();
+  saveState();
 }
 function renderBlock(b) {
   const { el, body } = makeBlockShell(b);
@@ -1239,7 +1366,6 @@ function normalizeTheme(theme) {
   const allowed = ["emerald", "royal", "crimson", "gold", "ocean", "obsidian"];
   return allowed.includes(theme) ? theme : "emerald";
 }
-
 function applyTheme(theme) {
   const safeTheme = normalizeTheme(theme);
   document.body.dataset.theme = safeTheme;
@@ -1511,12 +1637,13 @@ async function loadServerPageFromFirebase(serverId) {
       ? pageData.meta.tags
       : (Array.isArray(serverData.tags) ? serverData.tags : []),
     theme: normalizeTheme(pageData?.meta?.theme || serverData.theme || "emerald"),
-    backgroundUrl: String(pageData?.meta?.backgroundUrl || "").trim(),
-    backgroundStoragePath: ""
+    canvasBackgroundUrl: String(pageData?.meta?.canvasBackgroundUrl || "").trim(),
+    canvasBackgroundStoragePath: "",
+    shellBackgroundUrl: String(pageData?.meta?.shellBackgroundUrl || "").trim(),
+    shellBackgroundStoragePath: "",
+    pageBackgroundUrl: String(pageData?.meta?.pageBackgroundUrl || "").trim(),
+    pageBackgroundStoragePath: ""
   };
-  if (themeSelect) {
-    themeSelect.value = state.meta.theme || "emerald";
-  }
   applyTheme(state.meta.theme || "emerald");
   syncCustomThemeControls();
   applyCanvasBackground();
@@ -1787,8 +1914,12 @@ async function loadState() {
           description: draftData?.meta?.description || "",
           tags: Array.isArray(draftData?.meta?.tags) ? draftData.meta.tags : [],
           theme: normalizeTheme(draftData?.meta?.theme || "emerald"),
-          backgroundUrl: String(draftData?.meta?.backgroundUrl || "").trim(),
-          backgroundStoragePath: String(draftData?.meta?.backgroundStoragePath || "").trim()
+          canvasBackgroundUrl: String(draftData?.meta?.canvasBackgroundUrl || "").trim(),
+          canvasBackgroundStoragePath: String(draftData?.meta?.canvasBackgroundStoragePath || "").trim(),
+          shellBackgroundUrl: String(draftData?.meta?.shellBackgroundUrl || "").trim(),
+          shellBackgroundStoragePath: String(draftData?.meta?.shellBackgroundStoragePath || "").trim(),
+          pageBackgroundUrl: String(draftData?.meta?.pageBackgroundUrl || "").trim(),
+          pageBackgroundStoragePath: String(draftData?.meta?.pageBackgroundStoragePath || "").trim()
         };
 
         if (themeSelect) {
@@ -1856,8 +1987,12 @@ function resetState() {
     description: "",
     tags: [],
     theme: "emerald",
-    backgroundUrl: "",
-    backgroundStoragePath: ""
+    canvasBackgroundUrl: "",
+    canvasBackgroundStoragePath: "",
+    shellBackgroundUrl: "",
+    shellBackgroundStoragePath: "",
+    pageBackgroundUrl: "",
+    pageBackgroundStoragePath: ""
   };
   state.blocks = [];
   state.decorations = [];
@@ -2019,10 +2154,13 @@ window.addEventListener("keydown", (e) => {
         description: parsed.meta?.description || "",
         tags: Array.isArray(parsed.meta?.tags) ? parsed.meta.tags : [],
         theme: normalizeTheme(parsed.meta?.theme || "emerald"),
-        backgroundUrl: String(parsed.meta?.backgroundUrl || "").trim(),
-        backgroundStoragePath: String(parsed.meta?.backgroundStoragePath || "").trim()
+        canvasBackgroundUrl: String(parsed.meta?.canvasBackgroundUrl || "").trim(),
+        canvasBackgroundStoragePath: String(parsed.meta?.canvasBackgroundStoragePath || "").trim(),
+        shellBackgroundUrl: String(parsed.meta?.shellBackgroundUrl || "").trim(),
+        shellBackgroundStoragePath: String(parsed.meta?.shellBackgroundStoragePath || "").trim(),
+        pageBackgroundUrl: String(parsed.meta?.pageBackgroundUrl || "").trim(),
+        pageBackgroundStoragePath: String(parsed.meta?.pageBackgroundStoragePath || "").trim()
       };
-
       if (themeSelect) {
         themeSelect.value = state.meta.theme;
       }
@@ -2045,65 +2183,58 @@ window.addEventListener("keydown", (e) => {
 homeBtn?.addEventListener("click", () => {
   window.location.href = "index.html";
 });
-addBackgroundBtn?.addEventListener("click", () => {
-  backgroundInput?.click();
+
+addCanvasBackgroundBtn?.addEventListener("click", () => {
+  canvasBackgroundInput?.click();
 });
 
-backgroundInput?.addEventListener("change", async () => {
-  const file = backgroundInput?.files?.[0];
-  if (!file) return;
-
-  try {
-
-    const routedServerId = serverIdFromUrl;
-
-    if (!routedServerId) {
-      const dataUrl = await fileToDataUrl(file);
-      state.meta.backgroundUrl = dataUrl;
-      state.meta.backgroundStoragePath = "";
-      syncCustomThemeControls();
-      applyCanvasBackground();
-      saveState();
-      return;
-    }
-
-    if (state.meta.backgroundStoragePath) {
-      await deleteStorageFile(state.meta.backgroundStoragePath);
-    }
-
-    const { imageUrl, storagePath } = await uploadDraftImage(
-      file,
-      routedServerId,
-      `background_${Date.now()}`
-    );
-
-    state.meta.backgroundUrl = imageUrl;
-    state.meta.backgroundStoragePath = storagePath;
-
-    syncCustomThemeControls();
-    applyCanvasBackground();
-    saveState();
-  } catch (err) {
-    console.error("Background upload failed:", err);
-  } finally {
-    if (backgroundInput) backgroundInput.value = "";
-  }
+addShellBackgroundBtn?.addEventListener("click", () => {
+  shellBackgroundInput?.click();
 });
 
-removeBackgroundBtn?.addEventListener("click", async () => {
-  try {
-    if (state.meta.backgroundStoragePath) {
-      await deleteStorageFile(state.meta.backgroundStoragePath);
-    }
-  } catch (err) {
-    console.warn("Background delete failed:", err);
-  }
-
-  state.meta.backgroundUrl = "";
-  state.meta.backgroundStoragePath = "";
-  applyCanvasBackground();
-  saveState();
+addPageBackgroundBtn?.addEventListener("click", () => {
+  pageBackgroundInput?.click();
 });
+
+canvasBackgroundInput?.addEventListener("change", async () => {
+  await handleBackgroundUpload(
+    canvasBackgroundInput,
+    "canvasBackgroundUrl",
+    "canvasBackgroundStoragePath",
+    "canvas_background"
+  );
+});
+
+shellBackgroundInput?.addEventListener("change", async () => {
+  await handleBackgroundUpload(
+    shellBackgroundInput,
+    "shellBackgroundUrl",
+    "shellBackgroundStoragePath",
+    "shell_background"
+  );
+});
+
+pageBackgroundInput?.addEventListener("change", async () => {
+  await handleBackgroundUpload(
+    pageBackgroundInput,
+    "pageBackgroundUrl",
+    "pageBackgroundStoragePath",
+    "page_background"
+  );
+});
+
+removeCanvasBackgroundBtn?.addEventListener("click", async () => {
+  await handleBackgroundRemove("canvasBackgroundUrl", "canvasBackgroundStoragePath");
+});
+
+removeShellBackgroundBtn?.addEventListener("click", async () => {
+  await handleBackgroundRemove("shellBackgroundUrl", "shellBackgroundStoragePath");
+});
+
+removePageBackgroundBtn?.addEventListener("click", async () => {
+  await handleBackgroundRemove("pageBackgroundUrl", "pageBackgroundStoragePath");
+});
+
 applyTheme("emerald");
 if (themeSelect) {
   themeSelect.value = "emerald";
