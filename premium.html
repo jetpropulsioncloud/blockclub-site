@@ -851,8 +851,21 @@
         }).render(containerId);
       }
 
+      let paypalButtonsRendered = false;
+
+      function renderPaypalButtonsOnce() {
+        if (paypalButtonsRendered) return;
+        paypalButtonsRendered = true;
+
+        renderButton("#paypal-creator", "creator", PAYPAL_PLANS.creator);
+        renderButton("#paypal-boost", "boost", PAYPAL_PLANS.boost);
+        renderButton("#paypal-realm", "realm", PAYPAL_PLANS.realm);
+      }
+
       onAuthStateChanged(auth, user => {
         currentUser = user;
+
+        renderPaypalButtonsOnce();
 
         if (!user) {
           setCheckoutMessage("Please log in before choosing a premium plan.");
@@ -865,10 +878,6 @@
         }
 
         setCheckoutMessage("Choose a plan below. PayPal will handle the subscription securely.");
-
-        renderButton("#paypal-creator", "creator", PAYPAL_PLANS.creator);
-        renderButton("#paypal-boost", "boost", PAYPAL_PLANS.boost);
-        renderButton("#paypal-realm", "realm", PAYPAL_PLANS.realm);
       });
     </script>
   </body>
