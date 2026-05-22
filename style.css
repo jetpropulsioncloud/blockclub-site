@@ -1297,3 +1297,24 @@ input.vote-username-input {
   border-color: rgba(29, 191, 115, 0.5) !important;
   box-shadow: 0 0 0 3px rgba(29, 191, 115, 0.12);
 }
+.paypal-plan-box {
+  width: 100%;
+  border-radius: 18px;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(17,24,39,0.08);
+}
+
+.paypal-plan-box strong {
+  display: block;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.paypal-plan-box span {
+  display: block;
+  margin: 4px 0 10px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}

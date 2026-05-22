@@ -742,20 +742,33 @@
       <section id="checkout" class="section-block">
         <div class="checkout-card">
           <div>
-            <h2 class="section-heading" style="margin-bottom:0;">Checkout placeholder</h2>
-            <p>
-              This can stay as a placeholder until the premium rewards are fully gated in the builder.
-              Once that part is finished, this section can become your real checkout area.
+            <h2 class="section-heading" style="margin-bottom:0;">Choose your plan</h2>
+            <p id="checkoutStatus">
+              Log in and open Premium from your server page so BlockClub knows which server to upgrade.
             </p>
             <p>
-              The page already does the important job: it clearly explains what each tier unlocks and keeps the message simple.
+              PayPal will handle the subscription. BlockClub will unlock the tier after PayPal confirms it.
             </p>
           </div>
 
-          <div class="small-stack">
-            <a class="btn primary" href="index.html#discord">Join Discord</a>
-            <a class="btn ghost" href="index.html#servers">Browse servers</a>
-            <a class="subtle-link" href="index.html">Back to BlockClub</a>
+          <div class="small-stack" style="min-width:280px;">
+            <div class="paypal-plan-box">
+              <strong>Creator</strong>
+              <span>$2.99 / month</span>
+              <div id="paypal-creator"></div>
+            </div>
+
+            <div class="paypal-plan-box">
+              <strong>Boost</strong>
+              <span>$6.99 / month</span>
+              <div id="paypal-boost"></div>
+            </div>
+
+            <div class="paypal-plan-box">
+              <strong>Realm</strong>
+              <span>$8.99 / month</span>
+              <div id="paypal-realm"></div>
+            </div>
           </div>
         </div>
       </section>
@@ -784,5 +797,79 @@
         </div>
       </section>
     </main>
+    <script src="https://www.paypal.com/sdk/js?client-id=AaOU2Cxb5JVF1ttQJexafuoE0WB8iKej4s9kZ1mfYppJvOkGxPHInWqNozsO999d2FWnssuqJwt0Sjp5&components=buttons&vault=true&intent=subscription"></script>
+
+    <script type="module">
+      import { auth } from "./firebase.js";
+      import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+      const PAYPAL_PLANS = {
+        creator: "P-3GB13984SA584183ENIIHHHA",
+        boost: "P-9NH09654NT747502SNIIHIRQ",
+        realm: "P-9HK91521DV8272417NIIHJCA"
+      };
+
+      const checkoutStatus = document.getElementById("checkoutStatus");
+      const params = new URLSearchParams(window.location.search);
+      const serverId = params.get("serverId");
+
+      let currentUser = null;
+
+      function setCheckoutMessage(message) {
+        if (checkoutStatus) {
+          checkoutStatus.textContent = message;
+        }
+      }
+
+      function renderButton(containerId, tier, planId) {
+        paypal.Buttons({
+          createSubscription(data, actions) {
+            if (!currentUser) {
+              setCheckoutMessage("Please log in before choosing a premium plan.");
+              throw new Error("User is not logged in.");
+            }
+
+            if (!serverId) {
+              setCheckoutMessage("Open this page from your server page or builder so we know which server to upgrade.");
+              throw new Error("Missing serverId.");
+            }
+
+            return actions.subscription.create({
+              plan_id: planId,
+              custom_id: `${currentUser.uid}|${serverId}|${tier}`
+            });
+          },
+
+          onApprove(data) {
+            setCheckoutMessage(`Thanks! PayPal approved your subscription. BlockClub is waiting for PayPal confirmation: ${data.subscriptionID}`);
+          },
+
+          onError(error) {
+            console.error("PayPal checkout error:", error);
+            setCheckoutMessage("PayPal checkout had an issue. Please try again.");
+          }
+        }).render(containerId);
+      }
+
+      onAuthStateChanged(auth, user => {
+        currentUser = user;
+
+        if (!user) {
+          setCheckoutMessage("Please log in before choosing a premium plan.");
+          return;
+        }
+
+        if (!serverId) {
+          setCheckoutMessage("Open Premium from your server page or builder so BlockClub knows which server to upgrade.");
+          return;
+        }
+
+        setCheckoutMessage("Choose a plan below. PayPal will handle the subscription securely.");
+
+        renderButton("#paypal-creator", "creator", PAYPAL_PLANS.creator);
+        renderButton("#paypal-boost", "boost", PAYPAL_PLANS.boost);
+        renderButton("#paypal-realm", "realm", PAYPAL_PLANS.realm);
+      });
+    </script>
   </body>
 </html>
