@@ -479,7 +479,7 @@
           return `${s.players} players`;
         }
 
-        return "—";
+        return "Checking players...";
       }
       async function fetchLiveServerStatus(server) {
         const rawIp = String(server.ip || "").trim();
@@ -509,7 +509,15 @@
         const statusEl = document.querySelector(`[data-status-id="${CSS.escape(serverId)}"]`);
         const playersEl = document.querySelector(`[data-players-id="${CSS.escape(serverId)}"]`);
 
-        if (!statusEl || !playersEl || !data) return;
+        if (!statusEl || !playersEl) return;
+
+        if (!data) {
+          statusEl.classList.remove("online");
+          statusEl.classList.add("offline");
+          statusEl.textContent = "Status unavailable";
+          playersEl.textContent = "Players unavailable";
+          return;
+        }
 
         if (!data.online) {
           statusEl.classList.remove("online");
@@ -640,7 +648,20 @@
 
         const html = list
           .map((s) => {
-            const statusClass = s.status === "online" ? "online" : "offline";
+            const statusClass =
+              s.status === "online"
+                ? "online"
+                : s.status === "offline"
+                  ? "offline"
+                  : "offline";
+
+            const statusText =
+              s.status === "online"
+                ? "Online"
+                : s.status === "offline"
+                  ? "Offline"
+                  : "Checking...";
+
             const playersText = getPlayerText(s);
             const banner = s.bannerUrl || "";
             const excerpt = s.excerpt || "No description yet.";
@@ -678,7 +699,7 @@
                         class="status ${statusClass}"
                         data-status-id="${escapeHtml(s.id)}"
                       >
-                        ${s.status === "online" ? "Online" : "Offline"}
+                        ${statusText}
                       </div>
                       <div
                         class="muted"
