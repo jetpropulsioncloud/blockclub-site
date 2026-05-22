@@ -210,6 +210,202 @@ async function findServerByPaypalSubscription(db, subscriptionId) {
     serverData: docSnap.data() || {}
   };
 }
+const SERVER_STATUS_CACHE_MS = 60 * 1000;
+
+function numberOrNull(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function cachedStatusResponse(serverId, serverData) {
+  const status = String(serverData?.status || "unknown").toLowerCase();
+  const playersOnline = numberOrNull(
+    serverData?.playersOnline ??
+    serverData?.playerCount ??
+    serverData?.players
+  );
+
+  const maxPlayers = numberOrNull(
+    serverData?.maxPlayers ??
+    serverData?.playerMax
+  );
+
+  return {
+    ok: true,
+    cached: true,
+    serverId,
+    online: status === "online",
+    status,
+    playersOnline,
+    maxPlayers,
+    players: {
+      online: playersOnline ?? 0,
+      max: maxPlayers ?? 0
+    },
+    version: serverData?.serverVersion || "",
+    motd: serverData?.motd || "",
+    checkedAtMs: serverData?.statusCheckedAt?.toMillis?.() || Date.now()
+  };
+}
+
+async function fetchMinecraftServerStatus(ip, edition) {
+  const rawIp = String(ip || "").trim();
+
+  if (!rawIp) {
+    throw new Error("Missing server IP.");
+  }
+
+  const isBedrock = String(edition || "").toLowerCase().includes("bedrock");
+
+  const endpoint = isBedrock
+    ? `https://api.mcsrvstat.us/bedrock/3/${encodeURIComponent(rawIp)}`
+    : `https://api.mcsrvstat.us/3/${encodeURIComponent(rawIp)}`;
+
+  const response = await fetch(endpoint);
+
+  if (!response.ok) {
+    throw new Error(`Minecraft status request failed with ${response.status}`);
+  }
+
+  return response.json();
+}
+
+function normalizeMinecraftStatus(serverId, ip, edition, data) {
+  const online = data?.online === true;
+  const playersOnline = numberOrNull(data?.players?.online) ?? 0;
+  const maxPlayers = numberOrNull(data?.players?.max) ?? 0;
+
+  return {
+    ok: true,
+    cached: false,
+    serverId,
+    ip,
+    edition: edition || "",
+    online,
+    status: online ? "online" : "offline",
+    playersOnline: online ? playersOnline : 0,
+    maxPlayers: online ? maxPlayers : maxPlayers || 0,
+    players: {
+      online: online ? playersOnline : 0,
+      max: online ? maxPlayers : maxPlayers || 0
+    },
+    version: String(data?.version || ""),
+    motd: Array.isArray(data?.motd?.clean)
+      ? data.motd.clean.join(" ")
+      : String(data?.motd?.clean || ""),
+    checkedAtMs: Date.now()
+  };
+}
+
+async function writeServerStatusToFirestore(db, statusData) {
+  if (!statusData.serverId) return;
+
+  const serverRef = db.collection("servers").doc(statusData.serverId);
+  const snapshotRef = serverRef.collection("playerSnapshots").doc();
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  await serverRef.set(
+    {
+      status: statusData.status,
+      online: statusData.online,
+      players: statusData.playersOnline,
+      playerCount: statusData.playersOnline,
+      playersOnline: statusData.playersOnline,
+      maxPlayers: statusData.maxPlayers,
+      playerMax: statusData.maxPlayers,
+      serverVersion: statusData.version,
+      motd: statusData.motd,
+      statusSource: "mcsrvstat",
+      statusError: null,
+      statusCheckedAt: now,
+      lastStatusCheckAt: now,
+      updatedAt: now
+    },
+    { merge: true }
+  );
+
+  await snapshotRef.set({
+    serverId: statusData.serverId,
+    ip: statusData.ip,
+    edition: statusData.edition,
+    status: statusData.status,
+    online: statusData.online,
+    playersOnline: statusData.playersOnline,
+    maxPlayers: statusData.maxPlayers,
+    serverVersion: statusData.version,
+    source: "mcsrvstat",
+    checkedAt: now
+  });
+}
+
+exports.serverStatus = functions.https.onRequest(async (req, res) => {
+  applyCors(req, res);
+
+  if (req.method === "OPTIONS") {
+    return res.status(204).send("");
+  }
+
+  try {
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    const body = req.body || {};
+    const serverId = String(body.serverId || "").trim();
+    let ip = String(body.ip || "").trim();
+    let edition = String(body.edition || "").trim();
+
+    const db = admin.firestore();
+    let serverSnap = null;
+    let serverData = {};
+
+    if (serverId) {
+      const serverRef = db.collection("servers").doc(serverId);
+      serverSnap = await serverRef.get();
+
+      if (!serverSnap.exists) {
+        return res.status(404).json({ error: "Server not found" });
+      }
+
+      serverData = serverSnap.data() || {};
+      ip = String(serverData.ip || ip || "").trim();
+      edition = String(serverData.edition || serverData.platform || edition || "").trim();
+
+      const lastCheckedMs = serverData.statusCheckedAt?.toMillis?.() || 0;
+
+      if (lastCheckedMs && Date.now() - lastCheckedMs < SERVER_STATUS_CACHE_MS) {
+        return res.status(200).json(cachedStatusResponse(serverId, serverData));
+      }
+    }
+
+    if (!ip) {
+      return res.status(400).json({ error: "Missing server IP" });
+    }
+
+    const rawStatus = await fetchMinecraftServerStatus(ip, edition);
+    const statusData = normalizeMinecraftStatus(serverId, ip, edition, rawStatus);
+
+    await writeServerStatusToFirestore(db, statusData);
+
+    return res.status(200).json(statusData);
+  } catch (err) {
+    console.error("serverStatus failed:", err);
+
+    return res.status(500).json({
+      ok: false,
+      status: "unknown",
+      online: false,
+      playersOnline: null,
+      maxPlayers: null,
+      players: {
+        online: 0,
+        max: 0
+      },
+      error: err?.message || "Server status failed."
+    });
+  }
+});
 exports.vote = functions.https.onRequest(async (req, res) => {
   applyCors(req, res);
 

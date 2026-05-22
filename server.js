@@ -21,6 +21,7 @@ const GRID = {
 const params = new URLSearchParams(window.location.search);
 const serverId = params.get("serverId") || params.get("id");
 const previewMode = params.get("preview") === "1";
+const SERVER_STATUS_ENDPOINT = "https://us-central1-blockclub-4742a.cloudfunctions.net/serverStatus";
 
 const els = {
   serverPage: document.getElementById("serverPage"),  
@@ -139,25 +140,32 @@ function applyPublishedBackgrounds(pageData) {
     applyBackgroundStyles(page, pageBg, "rgba(255,255,255,0.08)");
   }
 }
-async function fetchServerStatusByIp(ip, edition = "") {
+async function fetchServerStatusByIp(ip, edition = "", targetServerId = "") {
   const rawIp = String(ip || "").trim();
   if (!rawIp) return null;
 
   try {
-    const isBedrock = String(edition || "").toLowerCase().includes("bedrock");
+    const res = await fetch(SERVER_STATUS_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        serverId: targetServerId || "",
+        ip: rawIp,
+        edition
+      })
+    });
 
-    const endpoint = isBedrock
-      ? `https://api.mcsrvstat.us/bedrock/3/${encodeURIComponent(rawIp)}`
-      : `https://api.mcsrvstat.us/3/${encodeURIComponent(rawIp)}`;
+    const data = await res.json().catch(() => ({}));
 
-    const res = await fetch(endpoint);
     if (!res.ok) {
-      throw new Error(`Status fetch failed: ${res.status}`);
+      throw new Error(data?.error || `Status fetch failed: ${res.status}`);
     }
 
-    return await res.json();
+    return data;
   } catch (err) {
-    console.error("Featured status fetch failed:", err);
+    console.error("Server status fetch failed:", err);
     return null;
   }
 }
@@ -198,6 +206,48 @@ async function loadFeaturedBlockClubCard() {
   }
 
   els.featuredPlayers.textContent = "Online";
+}
+function applyLiveStatusToServerPage(data) {
+  if (!els.spStatusPill || !els.spPlayersPill) return;
+
+  if (!data) {
+    els.spStatusPill.textContent = "Status unavailable";
+    els.spPlayersPill.textContent = "Players unavailable";
+    return;
+  }
+
+  if (!data.online) {
+    els.spStatusPill.textContent = data.status === "unknown" ? "Status unavailable" : "Offline";
+    els.spPlayersPill.textContent = data.status === "unknown" ? "Players unavailable" : "0 players";
+    return;
+  }
+
+  els.spStatusPill.textContent = "Online";
+
+  const online = Number(data?.players?.online ?? data?.playersOnline ?? 0);
+  const max = Number(data?.players?.max ?? data?.maxPlayers ?? 0);
+
+  if (Number.isFinite(online) && Number.isFinite(max) && max > 0) {
+    els.spPlayersPill.textContent = `${online}/${max} players`;
+    return;
+  }
+
+  if (Number.isFinite(online)) {
+    els.spPlayersPill.textContent = `${online} players`;
+    return;
+  }
+
+  els.spPlayersPill.textContent = "Online";
+}
+
+async function hydrateCurrentServerLiveStatus(serverData) {
+  const data = await fetchServerStatusByIp(
+    serverData.ip || "",
+    serverData.edition || serverData.platform || "",
+    serverId
+  );
+
+  applyLiveStatusToServerPage(data);
 }
 function sanitizeHtml(dirty) {
   const t = document.createElement("template");
@@ -641,7 +691,14 @@ function renderServer(serverData, pageData) {
 
   if (els.spName) els.spName.textContent = name;
   if (els.spIp) els.spIp.textContent = ip;
-  if (els.spStatusPill) els.spStatusPill.textContent = status;
+  if (els.spStatusPill) {
+    els.spStatusPill.textContent =
+      serverData.status === "online"
+        ? "Online"
+        : serverData.status === "offline"
+          ? "Offline"
+          : "Checking...";
+  }
   if (els.spModePill) els.spModePill.textContent = mode;
   if (els.spViewsPill) els.spViewsPill.textContent = `${views.toLocaleString()} views`;
   if (els.spPlayersPill) els.spPlayersPill.textContent = players;
@@ -655,6 +712,7 @@ function renderServer(serverData, pageData) {
   wireCopyIp(serverData.ip || "");
   wireUpvoteButton(serverData, currentViewer);
   loadFeaturedBlockClubCard();
+  hydrateCurrentServerLiveStatus(serverData);
   wireMinecraftVoteButton(serverData, currentViewer);
 }
 

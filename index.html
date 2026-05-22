@@ -258,7 +258,8 @@
       let activeQuery = "";
 
       let servers = [];
-      let isHydratingLivePlayers = false; 
+      let isHydratingLivePlayers = false;
+      const SERVER_STATUS_ENDPOINT = "https://us-central1-blockclub-4742a.cloudfunctions.net/serverStatus";
 
       function escapeHtml(str) {
         return String(str)
@@ -486,18 +487,24 @@
         if (!rawIp) return null;
 
         try {
-          const isBedrock = String(server.edition || server.platform || "")
-            .toLowerCase()
-            .includes("bedrock");
+          const res = await fetch(SERVER_STATUS_ENDPOINT, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              serverId: server.id || "",
+              ip: rawIp,
+              edition: server.edition || server.platform || ""
+            })
+          });
 
-          const endpoint = isBedrock
-            ? `https://api.mcsrvstat.us/bedrock/3/${encodeURIComponent(rawIp)}`
-            : `https://api.mcsrvstat.us/3/${encodeURIComponent(rawIp)}`;
+          const data = await res.json().catch(() => ({}));
 
-          const res = await fetch(endpoint);
-          if (!res.ok) throw new Error(`status ${res.status}`);
+          if (!res.ok) {
+            throw new Error(data?.error || `status ${res.status}`);
+          }
 
-          const data = await res.json();
           return data;
         } catch (err) {
           console.error("live server status failed:", rawIp, err);
@@ -522,8 +529,8 @@
         if (!data.online) {
           statusEl.classList.remove("online");
           statusEl.classList.add("offline");
-          statusEl.textContent = "Offline";
-          playersEl.textContent = "0 players";
+          statusEl.textContent = data.status === "unknown" ? "Status unavailable" : "Offline";
+          playersEl.textContent = data.status === "unknown" ? "Players unavailable" : "0 players";
           return;
         }
 
@@ -531,8 +538,8 @@
         statusEl.classList.add("online");
         statusEl.textContent = "Online";
 
-        const online = Number(data?.players?.online ?? 0);
-        const max = Number(data?.players?.max ?? 0);
+        const online = Number(data?.players?.online ?? data?.playersOnline ?? 0);
+        const max = Number(data?.players?.max ?? data?.maxPlayers ?? 0);
 
         if (Number.isFinite(online) && Number.isFinite(max) && max > 0) {
           playersEl.textContent = `${online}/${max} players`;
@@ -560,16 +567,16 @@
             if (!target || !data) return;
 
             if (!data.online) {
-              target.status = "offline";
-              target.players = 0;
-              target.maxPlayers = typeof target.maxPlayers === "number" ? target.maxPlayers : 0;
+              target.status = data.status === "unknown" ? "unknown" : "offline";
+              target.players = data.status === "unknown" ? null : 0;
+              target.maxPlayers = typeof data.maxPlayers === "number" ? data.maxPlayers : 0;
               return;
             }
 
             target.status = "online";
 
-            const online = Number(data?.players?.online ?? 0);
-            const max = Number(data?.players?.max ?? 0);
+            const online = Number(data?.players?.online ?? data?.playersOnline ?? 0);
+            const max = Number(data?.players?.max ?? data?.maxPlayers ?? 0);
 
             target.players = Number.isFinite(online) ? online : 0;
             if (Number.isFinite(max) && max > 0) {
