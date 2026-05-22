@@ -10,149 +10,140 @@ const db = admin.firestore();
 
 const seedServers = [
   {
+    id: "seed-hypixel",
     name: "Hypixel",
-    slug: "hypixel",
     ip: "mc.hypixel.net",
-    edition: "Java",
     description: "A large public Minecraft network known for minigames, SkyBlock, Bed Wars, and SkyWars.",
-    tags: ["Minigames", "SkyBlock", "Bed Wars", "SkyWars"]
+    tags: ["Minigames", "SkyBlock", "Bed Wars", "SkyWars"],
+    theme: "royal"
   },
   {
+    id: "seed-minecraft-central",
     name: "Minecraft Central",
-    slug: "minecraft-central",
     ip: "mccentral.org",
-    altIp: "mc-central.net",
-    edition: "Java",
     description: "A classic public Minecraft network with survival, skyblock, prison, and minigame modes.",
-    tags: ["Survival", "Skyblock", "Prison", "Minigames"]
+    tags: ["Survival", "Skyblock", "Prison", "Minigames"],
+    theme: "royal"
   },
   {
+    id: "seed-cubecraft",
     name: "CubeCraft",
-    slug: "cubecraft",
     ip: "play.cubecraft.net",
-    edition: "Java",
     description: "A public Minecraft minigame network known for fast casual game modes.",
-    tags: ["Minigames", "SkyWars", "EggWars"]
+    tags: ["Minigames", "SkyWars", "EggWars"],
+    theme: "royal"
   },
   {
+    id: "seed-manacube",
     name: "ManaCube",
-    slug: "manacube",
     ip: "mc.manacube.com",
-    edition: "Java / Bedrock",
     description: "A public Minecraft network with skyblock, parkour, prison, earth, and factions-style gameplay.",
-    tags: ["Skyblock", "Parkour", "Prison", "Earth", "Factions"]
+    tags: ["Skyblock", "Parkour", "Prison", "Earth", "Factions"],
+    theme: "royal"
   },
   {
+    id: "seed-opblocks",
     name: "OPBlocks",
-    slug: "opblocks",
     ip: "play.opblocks.com",
-    bedrockIp: "bedrock.opblocks.com:19132",
-    edition: "Java / Bedrock",
     description: "A public Minecraft network with prison, skyblock, survival, and related game modes.",
-    tags: ["Prison", "Skyblock", "Survival", "Pixelmon"]
+    tags: ["Prison", "Skyblock", "Survival", "Pixelmon"],
+    theme: "royal"
   },
   {
+    id: "seed-complex-gaming",
     name: "Complex Gaming",
-    slug: "complex-gaming",
     ip: "hub.mc-complex.com",
-    edition: "Java",
     description: "A public Minecraft network with modded, Pixelmon, vanilla, and survival-style servers.",
-    tags: ["Pixelmon", "Modded", "Survival", "Vanilla"]
+    tags: ["Pixelmon", "Modded", "Survival", "Vanilla"],
+    theme: "royal"
   },
   {
+    id: "seed-earthmc",
     name: "EarthMC",
-    slug: "earthmc",
     ip: "join.earthmc.net",
-    edition: "Java",
     description: "A public Earth-style Minecraft server focused on towny, economy, nations, and geopolitics.",
-    tags: ["Earth", "Towny", "Economy", "Geopolitics"]
+    tags: ["Earth", "Towny", "Economy", "Geopolitics"],
+    theme: "royal"
   },
   {
+    id: "seed-minehut",
     name: "Minehut",
-    slug: "minehut",
     ip: "mc.minehut.com",
-    bedrockIp: "bedrock.minehut.com",
-    edition: "Java / Bedrock",
     description: "A public Minecraft server hub where players can join and create community servers.",
-    tags: ["Server Hub", "SMP", "Creative", "PvP"]
+    tags: ["Server Hub", "SMP", "Creative", "PvP"],
+    theme: "royal"
   },
   {
+    id: "seed-applemc",
     name: "AppleMC",
-    slug: "applemc",
     ip: "applemc.fun",
-    edition: "Java",
     description: "A public Minecraft network with lifesteal, earth SMP, PvP, and related modes.",
-    tags: ["Lifesteal", "Earth SMP", "FFA", "PvP"]
+    tags: ["Lifesteal", "Earth SMP", "FFA", "PvP"],
+    theme: "royal"
   },
   {
+    id: "seed-donutsmp",
     name: "DonutSMP",
-    slug: "donutsmp",
     ip: "donutsmp.net",
-    edition: "Java / Bedrock",
     description: "A public Minecraft SMP-style network with PvP, survival, and economy elements.",
-    tags: ["SMP", "PvP", "Survival", "Lifesteal"]
+    tags: ["SMP", "PvP", "Survival", "Lifesteal"],
+    theme: "royal"
   },
   {
+    id: "seed-wynncraft",
     name: "Wynncraft",
-    slug: "wynncraft",
     ip: "play.wynncraft.com",
-    edition: "Java",
     description: "A public Minecraft MMORPG server with quests, classes, fantasy zones, and RPG progression.",
-    tags: ["MMORPG", "RPG", "Quests", "Fantasy"]
+    tags: ["MMORPG", "RPG", "Quests", "Fantasy"],
+    theme: "royal"
   }
 ];
 
-async function seedServersToFirestore() {
-  const batch = db.batch();
+async function seedPublicServers() {
   const now = admin.firestore.FieldValue.serverTimestamp();
 
   for (const server of seedServers) {
-    const ref = db.collection("servers").doc(server.slug);
-    const existingDoc = await ref.get();
+    const ref = db.collection("serverPages").doc(server.id);
 
-    if (existingDoc.exists && existingDoc.data().claimStatus === "claimed") {
-      console.log(`Skipped claimed server: ${server.name}`);
-      continue;
-    }
-
-    batch.set(
-      ref,
+    await ref.set(
       {
-        serverId: server.slug,
         name: server.name,
-        slug: server.slug,
         ip: server.ip,
-        altIp: server.altIp || "",
-        bedrockIp: server.bedrockIp || "",
-        edition: server.edition,
         description: server.description,
         tags: server.tags,
+        theme: server.theme,
+
+        bannerUrl: "",
+        logoUrl: "",
+
+        isPublished: true,
+        votingEnabled: true,
+
+        upvotes: 0,
+        views: 0,
+
+        ownerUid: null,
+
         claimStatus: "unclaimed",
         listingType: "public_seed",
         isPublicSeed: true,
         isClaimable: true,
-        ownerUid: null,
-        isPublished: true,
-        upvotes: 0,
-        views: 0,
-        bannerUrl: "",
-        logoUrl: "",
-        theme: "royal",
+
+        createdAt: now,
         updatedAt: now,
-        seededAt: now
+        pagePublishedAt: now
       },
       { merge: true }
     );
+
+    console.log(`Seeded ${server.name}`);
   }
 
-  await batch.commit();
-  console.log(`Seeded ${seedServers.length} public server listings.`);
+  console.log("Done seeding public servers into serverPages.");
 }
 
-seedServersToFirestore()
-  .then(() => {
-    process.exit(0);
-  })
+seedPublicServers()
+  .then(() => process.exit(0))
   .catch((error) => {
     console.error("Seed failed:", error);
     process.exit(1);
