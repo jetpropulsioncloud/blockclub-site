@@ -740,39 +740,55 @@
       </section>
 
       <section id="checkout" class="section-block">
-        <div class="checkout-card">
-          <div>
+        <div class="checkout-card premium-checkout-card">
+          <div class="checkout-intro">
+            <div class="eyebrow">Secure checkout</div>
             <h2 class="section-heading" style="margin-bottom:0;">Choose your plan</h2>
             <p id="checkoutStatus">
-              Log in and open Premium from your server page so BlockClub knows which server to upgrade.
+              Please log in before choosing a premium plan.
             </p>
             <p>
-              PayPal will handle the subscription. BlockClub will unlock the tier after PayPal confirms it.
+              PayPal handles the subscription. BlockClub unlocks your tier after PayPal confirms it.
             </p>
           </div>
 
-          <div class="small-stack" style="min-width:280px;">
+          <div class="paypal-plan-grid">
             <div class="paypal-plan-box">
-              <strong>Creator</strong>
-              <span>$2.99 / month</span>
+              <div class="paypal-plan-top">
+                <div>
+                  <strong>Creator</strong>
+                  <span>Custom page tools</span>
+                </div>
+                <div class="paypal-price">$2.99<span>/mo</span></div>
+              </div>
               <div id="paypal-creator"></div>
             </div>
 
-            <div class="paypal-plan-box">
-              <strong>Boost</strong>
-              <span>$6.99 / month</span>
+            <div class="paypal-plan-box featured-paypal-plan">
+              <div class="paypal-mini-badge">Most popular</div>
+              <div class="paypal-plan-top">
+                <div>
+                  <strong>Boost</strong>
+                  <span>Featured visibility</span>
+                </div>
+                <div class="paypal-price">$6.99<span>/mo</span></div>
+              </div>
               <div id="paypal-boost"></div>
             </div>
 
             <div class="paypal-plan-box">
-              <strong>Realm</strong>
-              <span>$8.99 / month</span>
+              <div class="paypal-plan-top">
+                <div>
+                  <strong>Realm</strong>
+                  <span>Highest limits</span>
+                </div>
+                <div class="paypal-price">$8.99<span>/mo</span></div>
+              </div>
               <div id="paypal-realm"></div>
             </div>
           </div>
         </div>
       </section>
-
       <section class="section-block">
         <div class="premium-section-card">
           <h2 class="section-heading">Questions owners will ask</h2>
@@ -797,8 +813,7 @@
         </div>
       </section>
     </main>
-    <script src="https://www.paypal.com/sdk/js?client-id=AaOU2Cxb5JVF1ttQJexafuoE0WB8iKej4s9kZ1mfYppJvOkGxPHInWqNozsO999d2FWnssuqJwt0Sjp5&components=buttons&vault=true&intent=subscription"></script>
-
+    <script src="https://www.paypal.com/sdk/js?client-id=AaOU2Cxb5JVF1ttQJexafuoE0WB8iKej4s9kZ1mfYppJvOkGxPHInWqNozsO999d2FWnssuqJwt0Sjp5&components=buttons&vault=true&intent=subscription&disable-funding=credit,card"></script>
     <script type="module">
       import { auth } from "./firebase.js";
       import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
@@ -823,6 +838,14 @@
 
       function renderButton(containerId, tier, planId) {
         paypal.Buttons({
+          style: {
+            shape: "pill",
+            color: "gold",
+            layout: "vertical",
+            label: "subscribe",
+            height: 42,
+            tagline: false
+          },
           createSubscription(data, actions) {
             if (!currentUser) {
               setCheckoutMessage("Please log in before choosing a premium plan.");
