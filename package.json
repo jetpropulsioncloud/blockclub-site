@@ -1,6 +1,10 @@
 {
+  "scripts": {
+    "seed:servers": "node scripts/seedPublicServers.js"
+  },
   "dependencies": {
     "@hytaleone/votifier": "^1.0.0",
-    "firebase": "^12.9.0"
+    "firebase": "^12.9.0",
+    "firebase-admin": "^13.10.0"
   }
 }
