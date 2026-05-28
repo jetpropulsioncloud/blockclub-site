@@ -2383,7 +2383,7 @@ function bcApplySpanStyle(styleName, styleValue) {
   const range = selection.getRangeAt(0)
   const span = document.createElement("span")
 
-  span.style[styleName] = styleValue
+  span.style.setProperty(styleName, styleValue)
 
   try {
     range.surroundContents(span)
@@ -2522,6 +2522,9 @@ document.addEventListener("mousedown", (event) => {
 
 if (bcRichToolbar) {
   bcRichToolbar.addEventListener("mousedown", (event) => {
+    if (event.target.closest("select")) return
+    if (event.target.closest("input[type='color']")) return
+
     event.preventDefault()
   })
 
@@ -2535,7 +2538,7 @@ if (bcRichToolbar) {
 
 if (bcRichSize) {
   bcRichSize.addEventListener("change", () => {
-    bcApplySpanStyle("fontSize", bcRichSize.value)
+    bcApplySpanStyle("font-size", bcRichSize.value)
     bcRichSize.value = ""
   })
 }
