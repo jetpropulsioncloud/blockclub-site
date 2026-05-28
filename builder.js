@@ -271,6 +271,7 @@ method = "none"`;
 function clearStateObject() {
   state.meta = {
     description: "",
+    descriptionHtml: "",
     tags: [],
     theme: "emerald",
     canvasBackgroundUrl: "",
@@ -341,6 +342,7 @@ function sendPreviewState() {
 const state = {
   meta: {
     description: "",
+    descriptionHtml: "",
     tags: [],
     theme: "emerald",
     canvasBackgroundUrl: "",
@@ -957,7 +959,7 @@ function renderBlock(b) {
   
   if (b.type === "text") {
     const rte = document.createElement("div");
-    rte.className = "rte";
+    rte.className = "rte bc-rich-editable";
     rte.contentEditable = "true";
     rte.spellcheck = true;
     rte.innerHTML = b.html || "<b>Title</b><br/>Write your lore, staff info, rules, etc.";
@@ -1654,6 +1656,7 @@ async function loadServerPageFromFirebase(serverId) {
   const pageData = pageSnap.exists() ? pageSnap.data() || {} : {};
   state.meta = {
     description: pageData?.meta?.description || serverData.description || "",
+    descriptionHtml: pageData?.meta?.descriptionHtml || serverData.descriptionHtml || "",
     tags: Array.isArray(pageData?.meta?.tags)
       ? pageData.meta.tags
       : (Array.isArray(serverData.tags) ? serverData.tags : []),
@@ -1937,6 +1940,7 @@ async function loadState() {
         clearStateObject();
         state.meta = {
           description: draftData?.meta?.description || "",
+          descriptionHtml: draftData?.meta?.descriptionHtml || "",
           tags: Array.isArray(draftData?.meta?.tags) ? draftData.meta.tags : [],
           theme: normalizeTheme(draftData?.meta?.theme || "emerald"),
           canvasBackgroundUrl: String(draftData?.meta?.canvasBackgroundUrl || "").trim(),
@@ -2027,7 +2031,7 @@ function resetState() {
   state.decorations = [];
   if (themeSelect) themeSelect.value = "emerald";
   applyTheme("emerald");
-  if (serverDescriptionInput) serverDescriptionInput.value = "";
+  if (serverDescriptionInput) setRichEditorHtml(serverDescriptionInput, "");
   renderTagDropdown();
   syncStagePreview();
   renderAll();
