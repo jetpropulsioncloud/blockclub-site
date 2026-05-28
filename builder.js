@@ -1351,8 +1351,8 @@ function setupDrag(containerEl, handleEl, item, kind) {
 
         const { cols, rows, colW, rowH, padding, gap } = getGrid();
 
+        const maxX = Math.max(0, cols - item.w);
         const maxY = Math.max(0, rows - item.h);
-        const maxY = Math.max(0, Math.floor(canvasRect.height / rowH) - item.h);
 
         const gx = Math.round((nextLeft - padding) / (colW + gap));
         const gy = Math.round((nextTop - padding) / (rowH + gap));
@@ -1542,10 +1542,10 @@ function addTextBlock() {
   const b = {
     id,
     type: "text",
-    x: 1,
-    y: 1,
-    w: 4,
-    h: 2,
+    x: 8,
+    y: 8,
+    w: 52,
+    h: 16,
     rot: 0,
     html: "<b>Title</b><br/>Write your lore, staff info, rules, etc."
   };
@@ -1562,10 +1562,10 @@ function addImageBlock() {
   const b = {
     id,
     type: "image",
-    x: 7,
-    y: 1,
-    w: 4,
-    h: 4,
+    x: 64,
+    y: 8,
+    w: 48,
+    h: 32,
     rot: 0,
     dataUrl: ""
   };
