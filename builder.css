@@ -802,3 +802,64 @@ body.preview .block-rot {
 .tag-dropdown-item input[type="checkbox"] {
   accent-color: var(--theme-accent, var(--green));
 }
+.bc-rich-toolbar {
+  position: fixed;
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(15, 15, 18, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.bc-rich-toolbar.is-visible {
+  display: flex;
+}
+
+.bc-rich-toolbar button,
+.bc-rich-toolbar select,
+.bc-rich-toolbar input[type="color"] {
+  min-height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  cursor: pointer;
+}
+
+.bc-rich-toolbar button {
+  padding: 5px 9px;
+}
+
+.bc-rich-toolbar select {
+  padding: 5px 8px;
+}
+
+.bc-rich-toolbar input[type="color"] {
+  width: 34px;
+  padding: 2px;
+}
+
+.bc-rich-editable {
+  min-height: 80px;
+  padding: 12px;
+  border-radius: 12px;
+  line-height: 1.55;
+  outline: none;
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+.bc-rich-editable:focus {
+  border-color: rgba(255, 255, 255, 0.34);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+}
+
+.bc-rich-editable:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.55;
+  pointer-events: none;
+}

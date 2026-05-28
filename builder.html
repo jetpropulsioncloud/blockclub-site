@@ -39,13 +39,12 @@
             <div class="stack">
               <label class="field">
                 <span class="label">Description</span>
-                <input
-                  id="serverDescriptionInput"
-                  class="control"
-                  type="text"
-                  maxlength="140"
-                  placeholder="One sentence that grabs attention"
-                />
+                 <div
+                    id="serverDescriptionInput"
+                    class="control bc-rich-editable"
+                    contenteditable="true"
+                    data-placeholder="One sentence that grabs attention"
+                  ></div>
                 <span class="muted small">Keep it to one strong sentence.</span>
               </label>
 
@@ -253,7 +252,28 @@
         <button class="btn primary" id="copyExport" type="button">Copy</button>
       </div>
     </dialog>
+    <div id="bcRichToolbar" class="bc-rich-toolbar" aria-hidden="true">
+      <button type="button" data-rich-cmd="bold"><strong>B</strong></button>
+      <button type="button" data-rich-cmd="italic"><em>I</em></button>
+      <button type="button" data-rich-cmd="underline"><u>U</u></button>
 
+      <select id="bcRichSize">
+        <option value="">Size</option>
+        <option value="14px">Small</option>
+        <option value="16px">Normal</option>
+        <option value="20px">Large</option>
+        <option value="28px">Huge</option>
+      </select>
+
+      <input id="bcRichColor" type="color" value="#ffffff" title="Text color">
+
+      <button type="button" data-rich-cmd="justifyLeft">Left</button>
+      <button type="button" data-rich-cmd="justifyCenter">Center</button>
+      <button type="button" data-rich-cmd="justifyRight">Right</button>
+
+      <button type="button" data-rich-cmd="insertUnorderedList">• List</button>
+      <button type="button" data-rich-cmd="removeFormat">Clear</button>
+    </div>
     <script type="module">
       import { app, auth, db, storage } from "./firebase.js";
       window.bcApp = app;

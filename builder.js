@@ -24,6 +24,9 @@ const stageServerDescription = document.getElementById("stageServerDescription")
 const stageTagList = document.getElementById("stageTagList");
 const canvas = document.getElementById("canvas");
 const blocksLayer = document.getElementById("blocksLayer");
+const bcRichToolbar = document.getElementById("bcRichToolbar")
+const bcRichSize = document.getElementById("bcRichSize")
+const bcRichColor = document.getElementById("bcRichColor")
 const decoLayer = document.getElementById("decoLayer");
 const themeSelect = document.getElementById("themeSelect");
 const customThemeControls = document.getElementById("customThemeControls");
@@ -101,6 +104,8 @@ const voteConfigPreview = document.getElementById("voteConfigPreview");
 const testVoteBtn = document.getElementById("testVoteBtn");
 const testVoteMsg = document.getElementById("testVoteMsg");
 
+let bcActiveRichEditor = null
+let bcSavedRange = null
 
 function getDraftKey(serverId) {
   return serverId ? `bc_builder_state_${serverId}` : LS_KEY;
@@ -2247,6 +2252,263 @@ removeShellBackgroundBtn?.addEventListener("click", async () => {
 removePageBackgroundBtn?.addEventListener("click", async () => {
   await handleBackgroundRemove("pageBackgroundUrl", "pageBackgroundStoragePath");
 });
+
+function bcIsInsideRichEditor(node) {
+  if (!node) return false
+
+  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement
+  return Boolean(element && element.closest(".bc-rich-editable"))
+}
+
+function bcSaveSelection() {
+  const selection = window.getSelection()
+
+  if (!selection || selection.rangeCount === 0) return
+
+  const range = selection.getRangeAt(0)
+
+  if (!bcIsInsideRichEditor(range.commonAncestorContainer)) return
+
+  bcSavedRange = range.cloneRange()
+
+  const element =
+    range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+      ? range.commonAncestorContainer
+      : range.commonAncestorContainer.parentElement
+
+  bcActiveRichEditor = element.closest(".bc-rich-editable")
+}
+
+function bcRestoreSelection() {
+  if (!bcSavedRange) return false
+
+  const selection = window.getSelection()
+  selection.removeAllRanges()
+  selection.addRange(bcSavedRange)
+
+  return true
+}
+
+function bcHideRichToolbar() {
+  if (!bcRichToolbar) return
+
+  bcRichToolbar.classList.remove("is-visible")
+  bcRichToolbar.setAttribute("aria-hidden", "true")
+}
+
+function bcShowRichToolbar() {
+  if (!bcRichToolbar) return
+
+  const selection = window.getSelection()
+
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    bcHideRichToolbar()
+    return
+  }
+
+  const range = selection.getRangeAt(0)
+
+  if (!bcIsInsideRichEditor(range.commonAncestorContainer)) {
+    bcHideRichToolbar()
+    return
+  }
+
+  bcSaveSelection()
+
+  const rect = range.getBoundingClientRect()
+
+  bcRichToolbar.style.left = `${Math.max(12, rect.left + rect.width / 2 - bcRichToolbar.offsetWidth / 2)}px`
+  bcRichToolbar.style.top = `${Math.max(12, rect.top - 52)}px`
+
+  bcRichToolbar.classList.add("is-visible")
+  bcRichToolbar.setAttribute("aria-hidden", "false")
+}
+
+function bcApplyRichCommand(command) {
+  if (!bcRestoreSelection()) return
+
+  document.execCommand(command, false, null)
+  bcSaveSelection()
+  bcShowRichToolbar()
+
+  if (bcActiveRichEditor) {
+    bcActiveRichEditor.dispatchEvent(new Event("input", { bubbles: true }))
+  }
+}
+
+function bcApplySpanStyle(styleName, styleValue) {
+  if (!styleValue) return
+  if (!bcRestoreSelection()) return
+
+  const selection = window.getSelection()
+
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return
+
+  const range = selection.getRangeAt(0)
+  const span = document.createElement("span")
+
+  span.style[styleName] = styleValue
+
+  try {
+    range.surroundContents(span)
+  } catch {
+    const contents = range.extractContents()
+    span.appendChild(contents)
+    range.insertNode(span)
+  }
+
+  selection.removeAllRanges()
+
+  const newRange = document.createRange()
+  newRange.selectNodeContents(span)
+  selection.addRange(newRange)
+
+  bcSaveSelection()
+  bcShowRichToolbar()
+
+  if (bcActiveRichEditor) {
+    bcActiveRichEditor.dispatchEvent(new Event("input", { bubbles: true }))
+  }
+}
+
+function sanitizeRichText(dirtyHtml) {
+  const template = document.createElement("template")
+  template.innerHTML = dirtyHtml || ""
+
+  const allowedTags = new Set([
+    "div",
+    "p",
+    "br",
+    "b",
+    "strong",
+    "i",
+    "em",
+    "u",
+    "span",
+    "ul",
+    "ol",
+    "li",
+    "a"
+  ])
+
+  const allowedStyles = new Set([
+    "color",
+    "background-color",
+    "font-size",
+    "text-align",
+    "font-weight",
+    "font-style",
+    "text-decoration"
+  ])
+
+  function cleanNode(parent) {
+    Array.from(parent.childNodes).forEach((child) => {
+      if (child.nodeType === Node.TEXT_NODE) return
+
+      if (child.nodeType !== Node.ELEMENT_NODE) {
+        child.remove()
+        return
+      }
+
+      const tag = child.tagName.toLowerCase()
+
+      if (!allowedTags.has(tag)) {
+        child.replaceWith(...Array.from(child.childNodes))
+        return
+      }
+
+      Array.from(child.attributes).forEach((attr) => {
+        const attrName = attr.name.toLowerCase()
+
+        if (tag === "a" && attrName === "href") {
+          const href = attr.value.trim()
+
+          if (!href.startsWith("http://") && !href.startsWith("https://")) {
+            child.removeAttribute("href")
+          } else {
+            child.setAttribute("target", "_blank")
+            child.setAttribute("rel", "noopener noreferrer")
+          }
+
+          return
+        }
+
+        if (attrName === "style") {
+          Array.from(child.style).forEach((property) => {
+            if (!allowedStyles.has(property)) {
+              child.style.removeProperty(property)
+            }
+          })
+
+          return
+        }
+
+        child.removeAttribute(attr.name)
+      })
+
+      cleanNode(child)
+    })
+  }
+
+  cleanNode(template.content)
+
+  return template.innerHTML
+}
+
+function getRichEditorHtml(editor) {
+  if (!editor) return ""
+  return sanitizeRichText(editor.innerHTML)
+}
+
+function setRichEditorHtml(editor, html) {
+  if (!editor) return
+  editor.innerHTML = sanitizeRichText(html || "")
+}
+
+document.addEventListener("selectionchange", () => {
+  setTimeout(bcShowRichToolbar, 0)
+})
+
+document.addEventListener("mouseup", () => {
+  setTimeout(bcShowRichToolbar, 0)
+})
+
+document.addEventListener("keyup", () => {
+  setTimeout(bcShowRichToolbar, 0)
+})
+
+document.addEventListener("mousedown", (event) => {
+  if (event.target.closest("#bcRichToolbar")) return
+  if (event.target.closest(".bc-rich-editable")) return
+
+  bcHideRichToolbar()
+})
+
+if (bcRichToolbar) {
+  bcRichToolbar.addEventListener("mousedown", (event) => {
+    event.preventDefault()
+  })
+
+  bcRichToolbar.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-rich-cmd]")
+    if (!button) return
+
+    bcApplyRichCommand(button.dataset.richCmd)
+  })
+}
+
+if (bcRichSize) {
+  bcRichSize.addEventListener("change", () => {
+    bcApplySpanStyle("fontSize", bcRichSize.value)
+    bcRichSize.value = ""
+  })
+}
+
+if (bcRichColor) {
+  bcRichColor.addEventListener("input", () => {
+    bcApplySpanStyle("color", bcRichColor.value)
+  })
+}
 
 applyTheme("emerald");
 if (themeSelect) {
