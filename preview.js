@@ -32,15 +32,19 @@ async function loadDraftFromFirestore(serverId) {
   return snap.data();
 }
 function gridToPx(x, y, w, h) {
-  const usableWidth = GRID.width - GRID.padding * 2 - GRID.gap * (GRID.columns - 1);
-  const colW = usableWidth / GRID.columns;
+  const rect = canvas.getBoundingClientRect();
+  const cols = GRID.columns;
+  const padding = GRID.padding;
+  const gap = GRID.gap;
+  const usableWidth = rect.width - padding * 2 - gap * (cols - 1);
+  const colW = Math.max(1, usableWidth / cols);
   const rowH = GRID.rowHeight;
 
   return {
-    left: GRID.padding + x * (colW + GRID.gap),
-    top: GRID.padding + y * (rowH + GRID.gap),
-    width: w * colW + GRID.gap * (w - 1),
-    height: h * rowH + GRID.gap * (h - 1)
+    left: padding + x * (colW + gap),
+    top: padding + y * (rowH + gap),
+    width: w * colW + gap * (w - 1),
+    height: h * rowH + gap * (h - 1)
   };
 }
 

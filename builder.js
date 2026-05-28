@@ -358,10 +358,13 @@ function uid(prefix) {
 function getGrid() {
   const rect = canvas.getBoundingClientRect();
   const cols = GRID.columns;
-  const usableWidth = GRID.width - GRID.padding * 2 - GRID.gap * (GRID.columns - 1);
-  const colW = usableWidth / cols;
+  const padding = GRID.padding;
+  const gap = GRID.gap;
+  const usableWidth = rect.width - padding * 2 - gap * (cols - 1);
+  const colW = Math.max(1, usableWidth / cols);
   const rowH = GRID.rowHeight;
-  return { rect, cols, colW, rowH };
+
+  return { rect, cols, colW, rowH, padding, gap };
 }
 
 function clamp(n, min, max) {
@@ -369,10 +372,14 @@ function clamp(n, min, max) {
 }
 
 function pxToGrid(xPx, yPx) {
-  const { cols, colW, rowH } = getGrid();
-  const gx = Math.round((xPx - GRID.padding) / (colW + GRID.gap));
-  const gy = Math.round((yPx - GRID.padding) / (rowH + GRID.gap));
-  return { x: clamp(gx, 0, cols - 1), y: clamp(gy, 0, 999) };
+  const { cols, colW, rowH, padding, gap } = getGrid();
+  const gx = Math.round((xPx - padding) / (colW + gap));
+  const gy = Math.round((yPx - padding) / (rowH + gap));
+
+  return {
+    x: clamp(gx, 0, cols - 1),
+    y: clamp(gy, 0, 999)
+  };
 }
 function makeDraftSafeState() {
   return {
@@ -486,18 +493,24 @@ function saveState() {
   }
 }
 function sizePxToGrid(wPx, hPx) {
-  const { cols, colW, rowH } = getGrid();
-  const gw = Math.round((wPx + GRID.gap) / (colW + GRID.gap));
-  const gh = Math.round((hPx + GRID.gap) / (rowH + GRID.gap));
-  return { w: clamp(gw, 1, cols), h: clamp(gh, 2, 999) };
+  const { cols, colW, rowH, gap } = getGrid();
+  const gw = Math.round((wPx + gap) / (colW + gap));
+  const gh = Math.round((hPx + gap) / (rowH + gap));
+
+  return {
+    w: clamp(gw, 1, cols),
+    h: clamp(gh, 2, 999)
+  };
 }
 
 function gridToPx(x, y, w, h) {
-  const { cols, colW, rowH } = getGrid();
-  const px = GRID.padding + x * (colW + GRID.gap);
-  const py = GRID.padding + y * (rowH + GRID.gap);
-  const pw = w * colW + GRID.gap * (w - 1);
-  const ph = h * rowH + GRID.gap * (h - 1);
+  const { cols, colW, rowH, padding, gap } = getGrid();
+
+  const px = padding + x * (colW + gap);
+  const py = padding + y * (rowH + gap);
+  const pw = w * colW + gap * (w - 1);
+  const ph = h * rowH + gap * (h - 1);
+
   return { px, py, pw, ph, cols, colW, rowH };
 }
 

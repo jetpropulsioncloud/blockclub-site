@@ -10,7 +10,7 @@
       .preview-shell { padding: 18px 0 30px; }
 
       .preview-stage {
-        max-width: 1620px;
+        width: min(1360px, calc(100vw - 60px));
         margin: 0 auto;
       }
 
@@ -23,6 +23,7 @@
 
       .preview-canvas {
         position: relative;
+        width: 100%;
         min-height: 900px;
         border-radius: var(--soft);
         border: 1px solid rgba(226, 232, 240, 0.9);
