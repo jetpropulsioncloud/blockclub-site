@@ -1540,8 +1540,8 @@ function addTextBlock() {
     type: "text",
     x: 1,
     y: 1,
-    w: 6,
-    h: 8,
+    w: 5,
+    h: 3,
     rot: 0,
     html: "<b>Title</b><br/>Write your lore, staff info, rules, etc."
   };
