@@ -1055,7 +1055,7 @@
           upvotes: typeof data?.upvotes === "number" ? data.upvotes : 0,
           excerpt: String(data?.excerpt || data?.description || "").trim(),
           bannerUrl: String(data?.bannerUrl || data?.coverUrl || "").trim(),
-          iconUrl: String(data?.iconUrl || "").trim()
+          iconUrl: String(data?.iconUrl || data?.logoUrl || "").trim()
         };
       }
 

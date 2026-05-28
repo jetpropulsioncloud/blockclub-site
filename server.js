@@ -656,7 +656,12 @@ function renderPublishedPage(pageData) {
 }function wireClaimServerButton(serverData, currentUser) {
   if (!els.claimServerCard || !els.claimServerBtn || !els.claimServerMsg) return;
 
-  const isSeeded = serverData.source === "seeded" || serverData.seeded === true;
+  const isSeeded =
+    serverData.source === "seeded" ||
+    serverData.seeded === true ||
+    serverData.isPublicSeed === true ||
+    serverData.isClaimable === true ||
+    serverData.listingType === "public_seed";
   const claimStatus = String(serverData.claimStatus || "").toLowerCase();
   const hasOwner = Boolean(serverData.ownerUid);
   const canClaim = !previewMode && !hasOwner && (isSeeded || claimStatus === "unclaimed");
