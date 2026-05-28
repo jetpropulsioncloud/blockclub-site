@@ -385,9 +385,10 @@ body {
 .block-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 5px 8px;
+  min-height: 34px;
   border-bottom: 1px solid var(--theme-border, rgba(226, 232, 240, 0.95));
   background: color-mix(in srgb, var(--theme-surface-2, #ffffff) 88%, var(--theme-bg-soft-1, #f8fafc) 12%);
   cursor: grab;
@@ -407,16 +408,16 @@ body {
 .iconbtn {
   border: 1px solid rgba(226, 232, 240, 0.9);
   background: #fff;
-  padding: 6px 9px;
-  border-radius: 10px;
-  font-weight: 950;
+  padding: 4px 8px;
+  border-radius: 9px;
+  font-weight: 900;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .block-body {
   padding: 12px;
-  height: calc(100% - 44px);
+  height: calc(100% - 34px);
 }
 
 .rte {
