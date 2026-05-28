@@ -2,7 +2,8 @@ const { defineSecret } = require("firebase-functions/params");
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { sendVote } = require("@hytaleone/votifier");
-
+const iconUrl = `https://api.mcsrvstat.us/icon/${encodeURIComponent(ip)}`;
+const iconUrl = server.iconUrl || `https://api.mcsrvstat.us/icon/${encodeURIComponent(server.ip || "")}`;
 admin.initializeApp();
 const paypalClientId = defineSecret("PAYPAL_CLIENT_ID");
 const paypalClientSecret = defineSecret("PAYPAL_CLIENT_SECRET");
@@ -237,6 +238,7 @@ function cachedStatusResponse(serverId, serverData) {
     ok: true,
     cached: true,
     serverId,
+    iconUrl: serverData?.iconUrl || "",
     online: status === "online",
     status,
     playersOnline,
@@ -277,6 +279,7 @@ function normalizeMinecraftStatus(serverId, ip, edition, data) {
   const online = data?.online === true;
   const playersOnline = numberOrNull(data?.players?.online) ?? 0;
   const maxPlayers = numberOrNull(data?.players?.max) ?? 0;
+  const encodedIp = encodeURIComponent(ip);
 
   return {
     ok: true,
@@ -284,6 +287,7 @@ function normalizeMinecraftStatus(serverId, ip, edition, data) {
     serverId,
     ip,
     edition: edition || "",
+    iconUrl: `https://api.mcsrvstat.us/icon/${encodedIp}`,
     online,
     status: online ? "online" : "offline",
     playersOnline: online ? playersOnline : 0,
@@ -312,6 +316,7 @@ async function writeServerStatusToFirestore(db, statusData) {
     {
       status: statusData.status,
       online: statusData.online,
+      iconUrl: statusData.iconUrl || "",
       players: statusData.playersOnline,
       playerCount: statusData.playersOnline,
       playersOnline: statusData.playersOnline,

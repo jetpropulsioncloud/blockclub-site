@@ -671,6 +671,9 @@
 
             const playersText = getPlayerText(s);
             const banner = s.bannerUrl || "";
+            const serverIp = s.ip || "";
+            const iconUrl = s.iconUrl || `https://api.mcsrvstat.us/icon/${encodeURIComponent(serverIp)}`;
+            const bannerImage = banner || iconUrl;
             const excerpt = s.excerpt || "No description yet.";
 
             const tagsHtml = (s.tags || [])
@@ -685,18 +688,26 @@
                 style="cursor:pointer; overflow:hidden;"
               >
                 <div
-                  class="server-card-banner"
-                  style="
-                    width:100%;
-                    height:160px;
-                    background:${banner ? `url('${escapeHtml(banner)}') center/cover no-repeat` : '#1a1a1a'};
-                    border-bottom:1px solid rgba(255,255,255,0.06);
-                  "
-                ></div>
+                  class="server-card-banner auto-server-banner"
+                  style="--server-banner-image: url('${escapeHtml(bannerImage)}');"
+                >
+                  <div class="server-card-banner-shade"></div>
+                  <img
+                    class="server-card-real-icon"
+                    src="${escapeHtml(iconUrl)}"
+                    alt="${escapeHtml(s.name || "Minecraft server")} icon"
+                    loading="lazy"
+                  />
+                </div>
 
                 <div style="padding:16px;">
                   <div class="card-top">
-                    <div class="server-icon small"></div>
+                    <img
+                      class="server-icon small server-row-icon"
+                      src="${escapeHtml(iconUrl)}"
+                      alt="${escapeHtml(s.name || "Minecraft server")} icon"
+                      loading="lazy"
+                    />
                     <div>
                       <div class="card-title">${escapeHtml(s.name)}</div>
                       <div class="card-sub">${escapeHtml(s.ip)}</div>
@@ -965,7 +976,8 @@
           views: typeof data?.views === "number" ? data.views : 0,
           upvotes: typeof data?.upvotes === "number" ? data.upvotes : 0,
           excerpt: String(data?.excerpt || data?.description || "").trim(),
-          bannerUrl: String(data?.bannerUrl || data?.coverUrl || "").trim()
+          bannerUrl: String(data?.bannerUrl || data?.coverUrl || "").trim(),
+          iconUrl: String(data?.iconUrl || "").trim()
         };
       }
 
