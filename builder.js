@@ -544,9 +544,9 @@ function makeBlockShell(b) {
   const title = document.createElement("div");
   title.className = "block-title";
     if (b.type === "text") {
-    title.textContent = "Text Box";
+    title.textContent = "";
   } else if (b.type === "image") {
-    title.textContent = "Image Box";
+    title.textContent = "";
   } else {
     title.textContent = "Block";
   }
