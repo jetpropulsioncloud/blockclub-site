@@ -2372,6 +2372,28 @@ function bcApplyRichCommand(command) {
   }
 }
 
+function bcRemoveStyleFromTree(root, styleName) {
+  if (!root) return
+
+  const elements = []
+
+  if (root.nodeType === Node.ELEMENT_NODE) {
+    elements.push(root)
+  }
+
+  if (root.querySelectorAll) {
+    elements.push(...root.querySelectorAll("*"))
+  }
+
+  for (const el of elements) {
+    el.style.removeProperty(styleName)
+
+    if (!el.getAttribute("style")) {
+      el.removeAttribute("style")
+    }
+  }
+}
+
 function bcApplySpanStyle(styleName, styleValue) {
   if (!styleValue) return
   if (!bcRestoreSelection()) return
@@ -2386,6 +2408,9 @@ function bcApplySpanStyle(styleName, styleValue) {
   span.style.setProperty(styleName, styleValue)
 
   const contents = range.extractContents()
+
+  bcRemoveStyleFromTree(contents, styleName)
+
   span.appendChild(contents)
   range.insertNode(span)
 
