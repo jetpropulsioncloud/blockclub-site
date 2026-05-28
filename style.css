@@ -1462,3 +1462,20 @@ input.vote-username-input {
   object-fit: cover;
   image-rendering: pixelated;
 }
+.server-pagination {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.server-pagination[hidden] {
+  display: none;
+}
+
+.server-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

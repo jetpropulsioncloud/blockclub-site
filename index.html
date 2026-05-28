@@ -166,6 +166,11 @@
           </div>
 
           <div id="serverGrid" class="grid"></div>
+          <div id="serverPagination" class="server-pagination" hidden>
+            <button id="prevServersBtn" class="btn small ghost" type="button">Previous</button>
+            <span id="serverPageLabel" class="muted">Page 1</span>
+            <button id="nextServersBtn" class="btn small ghost" type="button">Next</button>
+          </div>
         </section>
 
       <section id="advertise" class="section">
@@ -244,6 +249,10 @@
 
       const serverGrid = document.getElementById("serverGrid");
       const searchInput = document.getElementById("searchInput");
+      const serverPagination = document.getElementById("serverPagination");
+      const prevServersBtn = document.getElementById("prevServersBtn");
+      const nextServersBtn = document.getElementById("nextServersBtn");
+      const serverPageLabel = document.getElementById("serverPageLabel");
       const searchBtn = document.getElementById("searchBtn");
       const searchSuggestions = document.getElementById("searchSuggestions");
       const featuredStatus = document.getElementById("featuredStatus");
@@ -258,6 +267,10 @@
       let activeQuery = "";
 
       let servers = [];
+      const SERVERS_PER_PAGE = 10;
+
+      let currentServerPage = 1;
+      let currentRenderedServerList = [];
       let isHydratingLivePlayers = false;
       const SERVER_STATUS_ENDPOINT = "https://us-central1-blockclub-4742a.cloudfunctions.net/serverStatus";
 
@@ -587,7 +600,7 @@
           await Promise.allSettled(jobs);
 
           if (activeSort === "players") {
-            renderServers(sortServers(
+            renderPagedServers(sortServers(
               servers
                 .filter((s) => matchesFilter(s, activeFilter))
                 .filter((s) => matchesQuery(s, activeQuery))
@@ -636,6 +649,71 @@
 
         featuredPlayers.textContent = "Online";
       }
+      function getTotalServerPages(list) {
+        return Math.max(1, Math.ceil(list.length / SERVERS_PER_PAGE));
+      }
+
+      function getVisibleServerPage(list) {
+        const totalPages = getTotalServerPages(list);
+
+        if (currentServerPage > totalPages) {
+          currentServerPage = totalPages;
+        }
+
+        if (currentServerPage < 1) {
+          currentServerPage = 1;
+        }
+
+        const start = (currentServerPage - 1) * SERVERS_PER_PAGE;
+        const end = start + SERVERS_PER_PAGE;
+
+        return list.slice(start, end);
+      }
+
+      function updateServerPagination(list) {
+        if (!serverPagination || !prevServersBtn || !nextServersBtn || !serverPageLabel) return;
+
+        const totalPages = getTotalServerPages(list);
+        const shouldShow = list.length > SERVERS_PER_PAGE;
+
+        serverPagination.hidden = !shouldShow;
+        serverPageLabel.textContent = `Page ${currentServerPage} of ${totalPages}`;
+
+        prevServersBtn.disabled = currentServerPage <= 1;
+        nextServersBtn.disabled = currentServerPage >= totalPages;
+      }
+
+      function renderPagedServers(list) {
+        currentRenderedServerList = Array.isArray(list) ? list : [];
+
+        const visibleServers = getVisibleServerPage(currentRenderedServerList);
+
+        renderServers(visibleServers);
+        updateServerPagination(currentRenderedServerList);
+      }
+
+      function resetAndRenderServers(list) {
+        currentServerPage = 1;
+        renderPagedServers(list);
+      }
+
+      prevServersBtn?.addEventListener("click", () => {
+        if (currentServerPage <= 1) return;
+
+        currentServerPage -= 1;
+        renderPagedServers(currentRenderedServerList);
+        document.getElementById("servers")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      nextServersBtn?.addEventListener("click", () => {
+        const totalPages = getTotalServerPages(currentRenderedServerList);
+
+        if (currentServerPage >= totalPages) return;
+
+        currentServerPage += 1;
+        renderPagedServers(currentRenderedServerList);
+        document.getElementById("servers")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       function renderServers(list) {
         if (!serverGrid) return;
 
@@ -817,7 +895,7 @@
           .filter((s) => matchesQuery(s, activeQuery));
 
         const sorted = sortServers(filtered);
-        renderServers(sorted);
+        resetAndRenderServers(sorted);
       }
 
       sortSelect?.addEventListener("change", () => {

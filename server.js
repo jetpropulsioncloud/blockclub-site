@@ -39,6 +39,9 @@ const els = {
   spTags: document.getElementById("spTags"),
   spDesc: document.getElementById("spDesc"),
   pageCanvas: document.getElementById("pageCanvas"),
+  claimServerCard: document.getElementById("claimServerCard"),
+  claimServerBtn: document.getElementById("claimServerBtn"),
+  claimServerMsg: document.getElementById("claimServerMsg"),
   spVoteUsername: document.getElementById("spVoteUsername"),
   spVoteBtn: document.getElementById("spVoteBtn"),
   spVoteMsg: document.getElementById("spVoteMsg"),
@@ -650,8 +653,77 @@ function renderPublishedPage(pageData) {
   for (const d of decorations) {
     els.pageCanvas.appendChild(renderDecoration(d));
   }
-}
+}function wireClaimServerButton(serverData, currentUser) {
+  if (!els.claimServerCard || !els.claimServerBtn || !els.claimServerMsg) return;
 
+  const isSeeded = serverData.source === "seeded" || serverData.seeded === true;
+  const claimStatus = String(serverData.claimStatus || "").toLowerCase();
+  const hasOwner = Boolean(serverData.ownerUid);
+  const canClaim = !previewMode && !hasOwner && (isSeeded || claimStatus === "unclaimed");
+
+  els.claimServerCard.style.display = canClaim ? "" : "none";
+  els.claimServerMsg.textContent = "";
+
+  if (!canClaim) return;
+
+  const oldBtn = els.claimServerBtn;
+  const newBtn = oldBtn.cloneNode(true);
+  oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+  els.claimServerBtn = newBtn;
+
+  if (!currentUser) {
+    els.claimServerBtn.textContent = "Sign in to claim";
+    els.claimServerBtn.disabled = false;
+
+    els.claimServerBtn.addEventListener("click", () => {
+      els.claimServerMsg.textContent = "Sign in from the homepage first, then come back to claim this server.";
+    });
+
+    return;
+  }
+
+  els.claimServerBtn.textContent = "Claim this server";
+  els.claimServerBtn.disabled = false;
+
+  els.claimServerBtn.addEventListener("click", async () => {
+    const claimId = `${serverId}_${currentUser.uid}`;
+    const claimRef = doc(db, "serverClaimRequests", claimId);
+
+    try {
+      els.claimServerBtn.disabled = true;
+      els.claimServerBtn.textContent = "Submitting...";
+      els.claimServerMsg.textContent = "";
+
+      const existingClaim = await getDoc(claimRef);
+
+      if (existingClaim.exists()) {
+        const status = existingClaim.data()?.status || "pending";
+        els.claimServerBtn.textContent = "Claim already submitted";
+        els.claimServerMsg.textContent = `Your claim is already ${status}.`;
+        return;
+      }
+
+      await setDoc(claimRef, {
+        serverId,
+        serverName: serverData.name || "",
+        serverIp: serverData.ip || "",
+        requesterUid: currentUser.uid,
+        requesterEmail: currentUser.email || "",
+        status: "pending",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      els.claimServerBtn.textContent = "Claim submitted";
+      els.claimServerMsg.textContent = "Claim request sent. We’ll review it before transferring ownership.";
+    } catch (err) {
+      console.error("Claim request failed:", err);
+      els.claimServerBtn.disabled = false;
+      els.claimServerBtn.textContent = "Claim this server";
+      els.claimServerMsg.textContent = "Claim request failed. Check Firestore rules or try again.";
+    }
+  });
+}
 function renderServer(serverData, pageData) {
   const activeTheme = normalizeTheme(pageData?.meta?.theme || serverData.theme || "emerald");
   applyTheme(activeTheme);
@@ -714,6 +786,7 @@ function renderServer(serverData, pageData) {
   loadFeaturedBlockClubCard();
   hydrateCurrentServerLiveStatus(serverData);
   wireMinecraftVoteButton(serverData, currentViewer);
+  wireClaimServerButton(serverData, currentViewer);
 }
 
 async function loadServerPage(currentUser) {
