@@ -8,10 +8,10 @@ async function loadFirebase() {
   return fb;
 }
 const GRID = {
-  columns: 12,
+  columns: 120,
+  rows: 160,
   width: 1360,
-  rowHeight: 64,
-  gap: 12,
+  gap: 1,
   padding: 16
 };
 console.log("BUILDER VERSION CHECK - newest file loaded");
@@ -365,13 +365,17 @@ function uid(prefix) {
 function getGrid() {
   const rect = canvas.getBoundingClientRect();
   const cols = GRID.columns;
+  const rows = GRID.rows;
   const padding = GRID.padding;
   const gap = GRID.gap;
-  const usableWidth = rect.width - padding * 2 - gap * (cols - 1);
-  const colW = Math.max(1, usableWidth / cols);
-  const rowH = GRID.rowHeight;
 
-  return { rect, cols, colW, rowH, padding, gap };
+  const usableWidth = rect.width - padding * 2 - gap * (cols - 1);
+  const usableHeight = rect.height - padding * 2 - gap * (rows - 1);
+
+  const colW = Math.max(1, usableWidth / cols);
+  const rowH = Math.max(1, usableHeight / rows);
+
+  return { rect, cols, rows, colW, rowH, padding, gap };
 }
 
 function clamp(n, min, max) {
@@ -1345,13 +1349,13 @@ function setupDrag(containerEl, handleEl, item, kind) {
         const nextLeft = origLeft + dx;
         const nextTop = origTop + dy;
 
-        const { cols, colW, rowH } = getGrid();
+        const { cols, rows, colW, rowH, padding, gap } = getGrid();
 
-        const maxX = Math.max(0, cols - item.w);
+        const maxY = Math.max(0, rows - item.h);
         const maxY = Math.max(0, Math.floor(canvasRect.height / rowH) - item.h);
 
-        const gx = Math.round(nextLeft / colW);
-        const gy = Math.round(nextTop / rowH);
+        const gx = Math.round((nextLeft - padding) / (colW + gap));
+        const gy = Math.round((nextTop - padding) / (rowH + gap));
 
         item.x = clamp(gx, 0, maxX);
         item.y = clamp(gy, 0, maxY);

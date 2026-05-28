@@ -341,7 +341,7 @@ body {
   background-image:
     linear-gradient(to right, rgba(15, 23, 42, 0.06) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
-  background-size: calc(100% / 12) var(--row);
+  background-size: calc(100% / 120) calc(100% / 160);
   opacity: 0.5;
 }
 

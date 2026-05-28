@@ -5,10 +5,10 @@ function getDraftKey(serverId) {
   return serverId ? `bc_builder_state_${serverId}` : "bc_builder_state_v1";
 }
 const GRID = {
-  columns: 12,
+  columns: 120,
+  rows: 160,
   width: 1360,
-  rowHeight: 64,
-  gap: 12,
+  gap: 1,
   padding: 16
 };
 const canvas = document.getElementById("canvas");
@@ -33,12 +33,17 @@ async function loadDraftFromFirestore(serverId) {
 }
 function gridToPx(x, y, w, h) {
   const rect = canvas.getBoundingClientRect();
+
   const cols = GRID.columns;
+  const rows = GRID.rows;
   const padding = GRID.padding;
   const gap = GRID.gap;
+
   const usableWidth = rect.width - padding * 2 - gap * (cols - 1);
+  const usableHeight = rect.height - padding * 2 - gap * (rows - 1);
+
   const colW = Math.max(1, usableWidth / cols);
-  const rowH = GRID.rowHeight;
+  const rowH = Math.max(1, usableHeight / rows);
 
   return {
     left: padding + x * (colW + gap),
