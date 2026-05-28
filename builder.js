@@ -2385,13 +2385,9 @@ function bcApplySpanStyle(styleName, styleValue) {
 
   span.style.setProperty(styleName, styleValue)
 
-  try {
-    range.surroundContents(span)
-  } catch {
-    const contents = range.extractContents()
-    span.appendChild(contents)
-    range.insertNode(span)
-  }
+  const contents = range.extractContents()
+  span.appendChild(contents)
+  range.insertNode(span)
 
   selection.removeAllRanges()
 
@@ -2522,6 +2518,8 @@ document.addEventListener("mousedown", (event) => {
 
 if (bcRichToolbar) {
   bcRichToolbar.addEventListener("mousedown", (event) => {
+    bcSaveSelection()
+
     if (event.target.closest("select")) return
     if (event.target.closest("input[type='color']")) return
 
