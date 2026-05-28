@@ -1540,8 +1540,8 @@ function addTextBlock() {
     type: "text",
     x: 1,
     y: 1,
-    w: 5,
-    h: 3,
+    w: 4,
+    h: 2,
     rot: 0,
     html: "<b>Title</b><br/>Write your lore, staff info, rules, etc."
   };
@@ -1561,7 +1561,7 @@ function addImageBlock() {
     x: 7,
     y: 1,
     w: 4,
-    h: 8,
+    h: 4,
     rot: 0,
     dataUrl: ""
   };
