@@ -53,7 +53,9 @@ function applyCors(req, res) {
     "http://127.0.0.1:5500",
     "http://localhost:5500",
     "https://blockclub-4742a.web.app",
-    "https://blockclub-4742a.firebaseapp.com"
+    "https://blockclub-4742a.firebaseapp.com",
+    "https://mcblockclub.com",
+    "https://www.mcblockclub.com"
   ];
 
   const origin = req.headers.origin;
@@ -63,8 +65,9 @@ function applyCors(req, res) {
   }
 
   res.set("Vary", "Origin");
-  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.set("Access-Control-Max-Age", "3600");
 }
 function safeDocId(value) {
   return String(value || "").replace(/\//g, "_").slice(0, 500);
