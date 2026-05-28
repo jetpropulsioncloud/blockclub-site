@@ -390,6 +390,7 @@ function makeDraftSafeState() {
   return {
     meta: {
       description: String(state.meta?.description || "").trim(),
+      descriptionHtml: String(state.meta?.descriptionHtml || "").trim(),
       tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
       theme: normalizeTheme(state.meta?.theme || "emerald"),
       canvasBackgroundUrl: String(state.meta?.canvasBackgroundUrl || "").trim(),
@@ -840,6 +841,7 @@ async function publishToFirebase(payload) {
     ownerUid,
     name: serverName,
     description: String(state.meta?.description || "").trim(),
+    descriptionHtml: String(state.meta?.descriptionHtml || "").trim(),
     tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
     theme: normalizeTheme(state.meta?.theme || "emerald"),
     updatedAt: serverTimestamp(),
@@ -863,6 +865,7 @@ async function publishToFirebase(payload) {
     version: 1,
   meta: {
     description: String(state.meta?.description || "").trim(),
+    descriptionHtml: String(state.meta?.descriptionHtml || "").trim(),
     tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
     theme: normalizeTheme(state.meta?.theme || "emerald"),
     canvasBackgroundUrl,
@@ -1671,7 +1674,10 @@ async function loadServerPageFromFirebase(serverId) {
   if (nameEl) nameEl.value = serverData.name || "";
   if (ipEl) ipEl.value = serverData.ip || "";
   if (serverDescriptionInput) {
-    serverDescriptionInput.value = state.meta.description || "";
+    setRichEditorHtml(
+      serverDescriptionInput,
+      state.meta.descriptionHtml || state.meta.description || ""
+    );
   }
 
   syncStagePreview();
@@ -1887,6 +1893,7 @@ function syncStagePreview() {
   const serverName = String(document.getElementById("serverNameInput")?.value || "").trim();
   const serverIp = String(document.getElementById("serverIpInput")?.value || "").trim();
   const description = String(state.meta?.description || "").trim();
+  const descriptionHtml = String(state.meta?.descriptionHtml || "").trim();
   const tags = Array.isArray(state.meta?.tags) ? state.meta.tags : [];
 
   if (stageServerName) {
@@ -1898,8 +1905,8 @@ function syncStagePreview() {
   }
 
   if (stageServerDescription) {
-    stageServerDescription.textContent =
-      description || "A fresh survival world with big wars, strong teams, and a reason to come back tomorrow.";
+    stageServerDescription.innerHTML =
+    descriptionHtml || description || "A fresh survival world with big wars, strong teams, and a reason to come back tomorrow.";
   }
 
   if (stageTagList) {
@@ -1951,7 +1958,10 @@ async function loadState() {
         state.decorations = Array.isArray(draftData.decorations) ? draftData.decorations : [];
 
         if (serverDescriptionInput) {
-          serverDescriptionInput.value = state.meta.description || "";
+          setRichEditorHtml(
+            serverDescriptionInput,
+            state.meta.descriptionHtml || state.meta.description || ""
+          );
         }
 
         state.meta.tags = normalizeTags(state.meta.tags);
@@ -2003,6 +2013,7 @@ async function loadState() {
 function resetState() {
   state.meta = {
     description: "",
+    descriptionHtml: "",
     tags: [],
     theme: "emerald",
     canvasBackgroundUrl: "",
@@ -2150,14 +2161,12 @@ document.getElementById("serverNameInput")?.addEventListener("input", syncStageP
 document.getElementById("serverIpInput")?.addEventListener("input", syncStagePreview);
 
 serverDescriptionInput?.addEventListener("input", () => {
-  let value = String(serverDescriptionInput.value || "").trim();
+  const plainText = String(serverDescriptionInput.innerText || "").trim();
+  const richText = getRichEditorHtml(serverDescriptionInput);
 
-  if (/[.!?].+[A-Za-z0-9]/.test(value)) {
-    value = value.split(/(?<=[.!?])\s+/)[0].trim();
-    serverDescriptionInput.value = value;
-  }
+  state.meta.description = plainText;
+  state.meta.descriptionHtml = richText;
 
-  state.meta.description = value;
   syncStagePreview();
   saveState();
 });
@@ -2194,7 +2203,10 @@ window.addEventListener("keydown", (e) => {
       state.decorations = parsed.decorations || [];
 
       if (serverDescriptionInput) {
-        serverDescriptionInput.value = state.meta.description || "";
+        setRichEditorHtml(
+          serverDescriptionInput,
+          state.meta.descriptionHtml || state.meta.description || ""
+        );
       }
       
       renderTagDropdown();

@@ -780,7 +780,15 @@ function renderServer(serverData, pageData) {
   if (els.spViewsPill) els.spViewsPill.textContent = `${views.toLocaleString()} views`;
   if (els.spPlayersPill) els.spPlayersPill.textContent = players;
   if (els.spUpvotesPill) els.spUpvotesPill.textContent = `${upvotes.toLocaleString()} upvotes`;
-  if (els.spDesc) els.spDesc.textContent = serverData.description || "No description yet.";
+  if (els.spDesc) {
+    const descriptionHtml =
+      pageData?.meta?.descriptionHtml ||
+      serverData.descriptionHtml ||
+      serverData.description ||
+      "No description yet.";
+
+    els.spDesc.innerHTML = sanitizeHtml(descriptionHtml);
+  }  
   if (els.spVotesPill) els.spVotesPill.textContent = `${totalVotes.toLocaleString()} votes`;
 
   renderBanner(serverData);

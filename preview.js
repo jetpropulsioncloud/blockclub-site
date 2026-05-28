@@ -105,6 +105,39 @@ function applyPreviewBackgrounds(stateToUse) {
     applyBackgroundStyles(page, pageBg, "rgba(255,255,255,0.08)");
   }
 }
+function sanitizeHtml(dirty) {
+  const t = document.createElement("template");
+  t.innerHTML = String(dirty || "");
+
+  const blocked = new Set(["script", "style", "iframe", "object", "embed", "link", "meta"]);
+  const walker = document.createTreeWalker(t.content, NodeFilter.SHOW_ELEMENT, null);
+
+  const toRemove = [];
+
+  while (walker.nextNode()) {
+    const el = walker.currentNode;
+
+    if (blocked.has(el.tagName.toLowerCase())) {
+      toRemove.push(el);
+      continue;
+    }
+
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      const val = String(attr.value || "").trim().toLowerCase();
+
+      if (name.startsWith("on")) el.removeAttribute(attr.name);
+
+      if ((name === "href" || name === "src") && val.startsWith("javascript:")) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  }
+
+  for (const el of toRemove) el.remove();
+
+  return t.innerHTML;
+}
 async function render() {
   canvas.innerHTML = "";
 
@@ -145,7 +178,7 @@ async function render() {
       t.className = "pv-text";
       t.style.fontFamily = b.fontFamily || "inherit";
       t.style.textAlign = b.align || "left";
-      t.innerHTML = b.html || "";
+      t.innerHTML = sanitizeHtml(b.html || "");
       body.appendChild(t);
     }
 
