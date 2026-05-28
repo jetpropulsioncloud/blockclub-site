@@ -2162,6 +2162,13 @@ serverDescriptionInput?.addEventListener("input", () => {
   saveState();
 });
 window.addEventListener("resize", () => renderAll());
+window.addEventListener("scroll", () => {
+  setTimeout(bcShowRichToolbar, 0)
+}, true)
+
+window.addEventListener("resize", () => {
+  setTimeout(bcShowRichToolbar, 0)
+})
 window.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.key === "z") {
     if (history.length > 1) {
@@ -2315,13 +2322,26 @@ function bcShowRichToolbar() {
 
   bcSaveSelection()
 
-  const rect = range.getBoundingClientRect()
-
-  bcRichToolbar.style.left = `${Math.max(12, rect.left + rect.width / 2 - bcRichToolbar.offsetWidth / 2)}px`
-  bcRichToolbar.style.top = `${Math.max(12, rect.top - 52)}px`
-
   bcRichToolbar.classList.add("is-visible")
   bcRichToolbar.setAttribute("aria-hidden", "false")
+
+  const rect = range.getBoundingClientRect()
+  const toolbarRect = bcRichToolbar.getBoundingClientRect()
+
+  let left = rect.left + rect.width / 2 - toolbarRect.width / 2
+  let top = rect.top - toolbarRect.height - 12
+
+  if (left < 12) left = 12
+  if (left + toolbarRect.width > window.innerWidth - 12) {
+    left = window.innerWidth - toolbarRect.width - 12
+  }
+
+  if (top < 12) {
+    top = rect.bottom + 12
+  }
+
+  bcRichToolbar.style.left = `${left}px`
+  bcRichToolbar.style.top = `${top}px`
 }
 
 function bcApplyRichCommand(command) {

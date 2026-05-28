@@ -807,12 +807,15 @@ body.preview .block-rot {
   z-index: 99999;
   display: none;
   align-items: center;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 12px;
-  background: rgba(15, 15, 18, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(22, 28, 45, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: opacity 140ms ease, transform 140ms ease;
 }
 
 .bc-rich-toolbar.is-visible {
@@ -822,25 +825,32 @@ body.preview .block-rot {
 .bc-rich-toolbar button,
 .bc-rich-toolbar select,
 .bc-rich-toolbar input[type="color"] {
-  min-height: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 8px;
+  min-height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
-  color: white;
+  color: #ffffff;
   cursor: pointer;
+  font-weight: 800;
 }
 
 .bc-rich-toolbar button {
-  padding: 5px 9px;
+  padding: 6px 10px;
+}
+
+.bc-rich-toolbar button:hover,
+.bc-rich-toolbar select:hover,
+.bc-rich-toolbar input[type="color"]:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .bc-rich-toolbar select {
-  padding: 5px 8px;
+  padding: 6px 8px;
 }
 
 .bc-rich-toolbar input[type="color"] {
-  width: 34px;
-  padding: 2px;
+  width: 38px;
+  padding: 3px;
 }
 
 .bc-rich-editable {
@@ -854,8 +864,8 @@ body.preview .block-rot {
 }
 
 .bc-rich-editable:focus {
-  border-color: rgba(255, 255, 255, 0.34);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.10);
 }
 
 .bc-rich-editable:empty::before {
