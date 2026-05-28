@@ -873,3 +873,13 @@ body.preview .block-rot {
   opacity: 0.55;
   pointer-events: none;
 }
+.bc-rich-toolbar select {
+  padding: 6px 8px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.bc-rich-toolbar select option {
+  background: #ffffff;
+  color: #0f172a;
+}
