@@ -387,7 +387,7 @@ function renderDecoration(d) {
   el.style.left = `${x}px`;
   el.style.top = `${y}px`;
   el.style.position = "absolute";
-  el.style.transform = `translate(-50%, -50%) rotate(${d.rot || 0}deg)`;
+  el.style.transform = `rotate(${d.rot || 0}deg)`;
   el.style.fontSize = `${d.size || 54}px`;
   el.style.opacity = `${d.opacity ?? 1}`;
 
