@@ -1056,7 +1056,107 @@
         collection(db, "servers"),
         where("isPublished", "==", true)
       );
+      function getFeaturedServer() {
+        if (!servers.length) return null;
 
+        const paidFeatured = servers
+          .filter((server) => server.isFeatured)
+          .sort((a, b) => {
+            return a.featuredRank - b.featuredRank || trendingScore(b) - trendingScore(a);
+          });
+
+        if (paidFeatured.length) return paidFeatured[0];
+
+        return [...servers].sort((a, b) => trendingScore(b) - trendingScore(a))[0] || null;
+      }
+
+      function renderFeaturedServer() {
+        if (!featuredCard) return;
+
+        const server = getFeaturedServer();
+
+        if (!server) {
+          featuredCard.innerHTML = `
+            <div class="ghost-inner">
+              <div class="ghost-title">Your server here</div>
+              <div class="muted">Featured servers will appear here.</div>
+              <a class="btn primary list-server-btn" href="#">List a server</a>
+            </div>
+          `;
+
+          wireListServerButtons();
+          return;
+        }
+
+        const serverIp = String(server.ip || "").trim();
+        const iconUrl = server.iconUrl || `https://api.mcsrvstat.us/icon/${encodeURIComponent(serverIp)}`;
+        const bannerUrl = server.bannerUrl || iconUrl;
+        const playersText = getPlayerText(server);
+
+        const statusClass =
+          server.status === "online"
+            ? "online"
+            : server.status === "offline"
+              ? "offline"
+              : "offline";
+
+        const statusText =
+          server.status === "online"
+            ? "Online"
+            : server.status === "offline"
+              ? "Offline"
+              : "Checking...";
+
+        const tagsHtml = (server.tags || [])
+          .slice(0, 3)
+          .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
+          .join("");
+
+        featuredCard.innerHTML = `
+          <div
+            class="featured-banner"
+            style="--featured-banner-image: url('${escapeHtml(bannerUrl)}');"
+          >
+            <div class="featured-banner-shade"></div>
+          </div>
+
+          <div class="fc-top featured-real-top">
+            <img
+              class="server-icon"
+              src="${escapeHtml(iconUrl)}"
+              alt="${escapeHtml(server.name || "Server")} icon"
+              loading="lazy"
+            />
+
+            <div>
+              <div class="fc-name">${escapeHtml(server.name || "Untitled Server")}</div>
+              <div class="fc-ip">${escapeHtml(serverIp)}</div>
+            </div>
+          </div>
+
+          <div class="tags">
+            ${tagsHtml}
+          </div>
+
+          <div class="featured-desc">
+            ${escapeHtml(server.excerpt || "No description yet.")}
+          </div>
+
+          <div class="fc-bottom">
+            <div class="status ${statusClass}" data-status-id="${escapeHtml(server.id)}">
+              ${statusText}
+            </div>
+
+            <div class="players" data-players-id="${escapeHtml(server.id)}">
+              ${escapeHtml(playersText)}
+            </div>
+          </div>
+
+          <a class="btn small" href="server.html?serverId=${encodeURIComponent(server.id)}">
+            View server page
+          </a>
+        `;
+      }
       function hydratePublishedServersFromSnapshot(snap) {
         servers = snap.docs
           .map((d) => normalizeServer(d.id, d.data()))
