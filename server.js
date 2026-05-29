@@ -11,10 +11,11 @@ import {
   runTransaction
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 const GRID = {
-  columns: 12,
+  columns: 120,
+  rows: 160,
   width: 1360,
-  rowHeight: 64,
-  gap: 12,
+  height: 900,
+  gap: 1,
   padding: 16
 };
 
@@ -283,31 +284,39 @@ function sanitizeHtml(dirty) {
   return t.innerHTML;
 }
 
-function gridToPx(x, y, w, h) {
-  const cellW = (GRID.width - GRID.padding * 2 - GRID.gap * (GRID.columns - 1)) / GRID.columns;
+function getCanvasMetrics(canvasEl = els.pageCanvas) {
+  const rect = canvasEl?.getBoundingClientRect?.() || {};
 
-  const px = GRID.padding + x * (cellW + GRID.gap);
-  const py = GRID.padding + y * (GRID.rowHeight + GRID.gap);
-  const pw = cellW * w + GRID.gap * (w - 1);
-  const ph = GRID.rowHeight * h + GRID.gap * (h - 1);
+  const canvasW = rect.width || GRID.width;
+  const canvasH = rect.height || GRID.height;
+
+  const usableWidth = canvasW - GRID.padding * 2 - GRID.gap * (GRID.columns - 1);
+  const usableHeight = canvasH - GRID.padding * 2 - GRID.gap * (GRID.rows - 1);
+
+  const colW = Math.max(1, usableWidth / GRID.columns);
+  const rowH = Math.max(1, usableHeight / GRID.rows);
+
+  return { canvasW, canvasH, colW, rowH };
+}
+
+function gridToPx(x, y, w, h) {
+  const { colW, rowH } = getCanvasMetrics();
+
+  const safeX = Number(x || 0);
+  const safeY = Number(y || 0);
+  const safeW = Number(w || 1);
+  const safeH = Number(h || 1);
+
+  const px = GRID.padding + safeX * (colW + GRID.gap);
+  const py = GRID.padding + safeY * (rowH + GRID.gap);
+  const pw = safeW * colW + GRID.gap * Math.max(0, safeW - 1);
+  const ph = safeH * rowH + GRID.gap * Math.max(0, safeH - 1);
 
   return { px, py, pw, ph };
 }
 
-function canvasHeightFromBlocks(blocks, decorations) {
-  let maxBottom = 12;
-
-  for (const b of blocks || []) {
-    const bottom = (b.y || 0) + (b.h || 1);
-    if (bottom > maxBottom) maxBottom = bottom;
-  }
-
-  for (const d of decorations || []) {
-    const bottom = (d.y || 0) + (d.h || 1);
-    if (bottom > maxBottom) maxBottom = bottom;
-  }
-
-  return GRID.padding * 2 + maxBottom * (GRID.rowHeight + GRID.gap) + 40;
+function canvasHeightFromBlocks() {
+  return GRID.height;
 }
 function makeBlockShell() {
   const el = document.createElement("div");
@@ -370,8 +379,7 @@ function renderDecoration(d) {
   el.className = "pv-deco";
   el.textContent = d.emoji || d.value || "✨";
 
-  const canvasW = GRID.width;
-  const canvasH = Math.max(700, els.pageCanvas?.offsetHeight || 700);
+  const { canvasW, canvasH } = getCanvasMetrics(els.pageCanvas);
 
   const x = (d.x || 0) * canvasW;
   const y = (d.y || 0) * canvasH;
@@ -644,7 +652,9 @@ function renderPublishedPage(pageData) {
   const decorations = Array.isArray(pageData.decorations) ? pageData.decorations : [];
 
   els.pageCanvas.innerHTML = "";
-  els.pageCanvas.style.minHeight = `${canvasHeightFromBlocks(blocks, decorations)}px`;
+  els.pageCanvas.style.position = "relative";
+  els.pageCanvas.style.minHeight = `${canvasHeightFromBlocks()}px`;
+  els.pageCanvas.style.overflow = "hidden";
 
   for (const b of blocks) {
     els.pageCanvas.appendChild(renderBlock(b));
