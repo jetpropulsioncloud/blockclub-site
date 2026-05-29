@@ -2134,15 +2134,26 @@ previewBtn.addEventListener("click", () => {
   saveState();
 
   const routedServerId = serverIdFromUrl;
-  const url = routedServerId
-    ? `preview.html?serverId=${encodeURIComponent(routedServerId)}&draft=1`
-    : "preview.html";
+  const builderCanvasRect = canvas.getBoundingClientRect();
+  const canvasW = Math.round(builderCanvasRect.width);
+  const canvasH = Math.round(builderCanvasRect.height);
+
+  const previewParams = new URLSearchParams();
+
+  if (routedServerId) {
+    previewParams.set("serverId", routedServerId);
+    previewParams.set("draft", "1");
+  }
+
+  previewParams.set("canvasW", String(canvasW));
+  previewParams.set("canvasH", String(canvasH));
+
+  const url = `preview.html?${previewParams.toString()}`;
 
   openOrFocusPreview(url);
 
-  setTimeout(() => {
-    sendPreviewState();
-  }, 150);
+  setTimeout(sendPreviewState, 150);
+  setTimeout(sendPreviewState, 500);
 });
 publishBtn.addEventListener("click", async () => {
   const payload = buildPublishPayload();

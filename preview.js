@@ -1,6 +1,8 @@
 const params = new URLSearchParams(window.location.search);
 const serverId = params.get("serverId");
 const isDraft = params.get("draft") === "1";
+const previewCanvasW = Number(params.get("canvasW") || 0);
+const previewCanvasH = Number(params.get("canvasH") || 0);
 function getDraftKey(serverId) {
   return serverId ? `bc_builder_state_${serverId}` : "bc_builder_state_v1";
 }
@@ -13,6 +15,16 @@ const GRID = {
 };
 const canvas = document.getElementById("canvas");
 const note = document.getElementById("note");
+const previewStage = document.querySelector(".preview-stage");
+
+if (previewStage && previewCanvasW > 0) {
+  previewStage.style.width = `${previewCanvasW}px`;
+  previewStage.style.maxWidth = "calc(100vw - 60px)";
+}
+
+if (canvas && previewCanvasH > 0) {
+  canvas.style.minHeight = `${previewCanvasH}px`;
+}
 const closeBtn = document.getElementById("closeBtn");
 if (closeBtn) closeBtn.addEventListener("click", () => window.close());
 let liveState = null;
