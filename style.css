@@ -1604,3 +1604,49 @@ input.vote-username-input {
   object-fit: cover;
   display: block;
 }
+.featured-card {
+  overflow: hidden;
+  padding: 0;
+}
+
+.featured-banner {
+  position: relative;
+  height: 96px;
+  margin: -14px -14px 12px;
+  background-image: var(--featured-banner-image);
+  background-size: cover;
+  background-position: center;
+}
+
+.featured-banner-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.18), transparent 30%),
+    linear-gradient(180deg, rgba(15,23,42,0.05), rgba(15,23,42,0.62));
+}
+
+.featured-real-top {
+  padding: 0 14px;
+}
+
+.featured-card .tags,
+.featured-card .featured-desc,
+.featured-card .fc-bottom,
+.featured-card .btn {
+  margin-left: 14px;
+  margin-right: 14px;
+}
+
+.featured-desc {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.featured-card .btn {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}

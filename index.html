@@ -104,27 +104,8 @@
               <div class="badge">Ad Slot</div>
             </div>
 
-            <div class="featured-card">
-              <div class="fc-top">
-                <div class="server-icon"></div>
-                <div>
-                  <div class="fc-name">BlockClub SMP</div>
-                  <div class="fc-ip">play.mcblockclub.com</div>
-                </div>
-              </div>
-
-              <div class="tags">
-                <span class="tag">Survival</span>
-                <span class="tag">Economy</span>
-                <span class="tag">Guilds</span>
-              </div>
-
-              <div class="fc-bottom">
-                <div id="featuredStatus" class="status offline">Checking...</div>
-                <div id="featuredPlayers" class="players">Checking players...</div>
-              </div>
-
-              <a class="btn small" href="#advertise">Get featured like this</a>
+            <div id="featuredCard" class="featured-card">
+              <div class="muted">Loading featured server…</div>
             </div>
           </div>
 
@@ -257,6 +238,7 @@
       const searchSuggestions = document.getElementById("searchSuggestions");
       const featuredStatus = document.getElementById("featuredStatus");
       const featuredPlayers = document.getElementById("featuredPlayers");
+      const featuredCard = document.getElementById("featuredCard");
       const filterButtons = Array.from(document.querySelectorAll(".filter[data-filter]"));
       const sortSelect = document.getElementById("sortSelect");
       const SORT_KEY = "bc_sort";
@@ -844,7 +826,7 @@
         wireViewButtons();
         wireServerCards();
         hydrateHomepageLiveStatus(list);
-        hydrateFeaturedBlockClubCard();
+        //hydrateFeaturedBlockClubCard();
       }
 
       function wireCopyButtons() {
@@ -1051,6 +1033,8 @@
           createdAt: toMillisMaybe(data?.createdAt),
           pagePublishedAt: toMillisMaybe(data?.pagePublishedAt),
           isPublished: data?.isPublished === true,
+          isFeatured: data?.isFeatured === true || data?.featured === true || data?.adSlot === true,
+          featuredRank: typeof data?.featuredRank === "number" ? data.featuredRank : 999,
           views: typeof data?.views === "number" ? data.views : 0,
           upvotes: typeof data?.upvotes === "number" ? data.upvotes : 0,
           excerpt: String(data?.excerpt || data?.description || "").trim(),
@@ -1079,6 +1063,7 @@
           .filter((s) => s.name && s.ip);
 
         applyFilters();
+        renderFeaturedServer();
       }
 
       const unsubscribePublishedServers = onSnapshot(
@@ -1269,7 +1254,106 @@
       elLogout?.addEventListener("click", async () => {
         await signOut(auth);
       });
+      function getFeaturedServer() {
+        if (!servers.length) return null;
 
+        const paidFeatured = servers
+          .filter((server) => server.isFeatured)
+          .sort((a, b) => {
+            return a.featuredRank - b.featuredRank || trendingScore(b) - trendingScore(a);
+          });
+
+        if (paidFeatured.length) return paidFeatured[0];
+
+        return [...servers].sort((a, b) => trendingScore(b) - trendingScore(a))[0] || null;
+      }
+
+      function renderFeaturedServer() {
+        if (!featuredCard) return;
+
+        const server = getFeaturedServer();
+
+        if (!server) {
+          featuredCard.innerHTML = `
+            <div class="ghost-inner">
+              <div class="ghost-title">Your server here</div>
+              <div class="muted">Featured servers will appear here.</div>
+              <a class="btn primary list-server-btn" href="#">List a server</a>
+            </div>
+          `;
+          wireListServerButtons();
+          return;
+        }
+
+        const serverIp = String(server.ip || "").trim();
+        const iconUrl = server.iconUrl || `https://api.mcsrvstat.us/icon/${encodeURIComponent(serverIp)}`;
+        const bannerUrl = server.bannerUrl || iconUrl;
+        const playersText = getPlayerText(server);
+
+        const statusClass =
+          server.status === "online"
+            ? "online"
+            : server.status === "offline"
+              ? "offline"
+              : "offline";
+
+        const statusText =
+          server.status === "online"
+            ? "Online"
+            : server.status === "offline"
+              ? "Offline"
+              : "Checking...";
+
+        const tagsHtml = (server.tags || [])
+          .slice(0, 3)
+          .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
+          .join("");
+
+        featuredCard.innerHTML = `
+          <div
+            class="featured-banner"
+            style="--featured-banner-image: url('${escapeHtml(bannerUrl)}');"
+          >
+            <div class="featured-banner-shade"></div>
+          </div>
+
+          <div class="fc-top featured-real-top">
+            <img
+              class="server-icon"
+              src="${escapeHtml(iconUrl)}"
+              alt="${escapeHtml(server.name || "Server")} icon"
+              loading="lazy"
+            />
+
+            <div>
+              <div class="fc-name">${escapeHtml(server.name || "Untitled Server")}</div>
+              <div class="fc-ip">${escapeHtml(serverIp)}</div>
+            </div>
+          </div>
+
+          <div class="tags">
+            ${tagsHtml}
+          </div>
+
+          <div class="featured-desc">
+            ${escapeHtml(server.excerpt || "No description yet.")}
+          </div>
+
+          <div class="fc-bottom">
+            <div class="status ${statusClass}" data-status-id="${escapeHtml(server.id)}">
+              ${statusText}
+            </div>
+
+            <div class="players" data-players-id="${escapeHtml(server.id)}">
+              ${escapeHtml(playersText)}
+            </div>
+          </div>
+
+          <a class="btn small" href="server.html?serverId=${encodeURIComponent(server.id)}">
+            View server page
+          </a>
+        `;
+      }
       function setAuthUI(user, label = "") {
         if (!user) {
           elOpen.style.display = "inline-flex";
