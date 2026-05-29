@@ -862,9 +862,15 @@ async function publishToFirebase(payload) {
     serverDocData.upvotes = 0;
   }
 
+  console.log("About to write server doc:", serverRef.path);
+
   await setDoc(serverRef, serverDocData, { merge: true });
 
+  console.log("Server doc write worked");
+
   const pageRef = doc(db, "servers", serverId, "pages", "main");
+
+  console.log("About to write page doc:", pageRef.path);
 
   await setDoc(pageRef, {
     serverId,
