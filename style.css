@@ -1594,3 +1594,13 @@ input.vote-username-input {
 .cover-img:empty {
   display: none;
 }
+.server-icon {
+  overflow: hidden;
+}
+
+.server-icon img,
+.server-row-icon,
+.server-card-real-icon {
+  object-fit: cover;
+  display: block;
+}

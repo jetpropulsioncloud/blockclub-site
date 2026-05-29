@@ -884,3 +884,24 @@ body.preview .block-rot {
   background: #ffffff;
   color: #0f172a;
 }
+.server-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0f172a, #334155);
+  flex: 0 0 auto;
+}
+
+.server-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.server-icon-upload-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

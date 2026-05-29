@@ -25,6 +25,10 @@ const stageTagList = document.getElementById("stageTagList");
 const canvas = document.getElementById("canvas");
 const blocksLayer = document.getElementById("blocksLayer");
 const bcRichToolbar = document.getElementById("bcRichToolbar")
+const addServerIconBtn = document.getElementById("addServerIconBtn");
+const removeServerIconBtn = document.getElementById("removeServerIconBtn");
+const serverIconInput = document.getElementById("serverIconInput");
+const stageServerIcon = document.querySelector(".server-mini .server-icon");
 const bcRichSize = document.getElementById("bcRichSize")
 const bcRichColor = document.getElementById("bcRichColor")
 const decoLayer = document.getElementById("decoLayer");
@@ -345,6 +349,8 @@ const state = {
     descriptionHtml: "",
     tags: [],
     theme: "emerald",
+    iconUrl: "",
+    iconStoragePath: "",
     canvasBackgroundUrl: "",
     canvasBackgroundStoragePath: "",
     shellBackgroundUrl: "",
@@ -396,6 +402,8 @@ function makeDraftSafeState() {
   return {
     meta: {
       description: String(state.meta?.description || "").trim(),
+      iconUrl: String(state.meta?.iconUrl || "").trim(),
+      iconStoragePath: String(state.meta?.iconStoragePath || "").trim(),
       descriptionHtml: String(state.meta?.descriptionHtml || "").trim(),
       tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
       theme: normalizeTheme(state.meta?.theme || "emerald"),
@@ -476,7 +484,26 @@ function applyCanvasBackground() {
     applyBackgroundStyles(page, pageBg, "rgba(255,255,255,0.08)");
   }
 }
+function renderServerIcon() {
+  if (!stageServerIcon) return;
 
+  const iconUrl = String(state.meta?.iconUrl || "").trim();
+
+  stageServerIcon.innerHTML = "";
+
+  if (!iconUrl) {
+    stageServerIcon.classList.remove("has-image");
+    return;
+  }
+
+  const img = document.createElement("img");
+  img.src = iconUrl;
+  img.alt = "Server icon";
+  img.loading = "lazy";
+
+  stageServerIcon.appendChild(img);
+  stageServerIcon.classList.add("has-image");
+}
 function saveState() {
   try {
     const snapshot = JSON.stringify(makeDraftSafeState());
@@ -535,6 +562,7 @@ function renderAll() {
     renderBlock(b);
   }
   for (const d of state.decorations) renderDeco(d);
+  renderServerIcon();
 }
 
 function makeBlockShell(b) {
@@ -822,13 +850,21 @@ async function publishToFirebase(payload) {
   let canvasBackgroundUrl = String(state.meta?.canvasBackgroundUrl || "").trim();
   let shellBackgroundUrl = String(state.meta?.shellBackgroundUrl || "").trim();
   let pageBackgroundUrl = String(state.meta?.pageBackgroundUrl || "").trim();
-
+  let iconUrl = String(state.meta?.iconUrl || "").trim();
+  let iconStoragePath = String(state.meta?.iconStoragePath || "").trim();
   if (canvasBackgroundUrl.startsWith("data:")) {
     const webp = await compressToWebp(canvasBackgroundUrl, 1600, 0.82);
     const bgRef = ref(st, `serverPages/${serverId}/backgrounds/canvas.webp`);
     canvasBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
   }
+  if (iconUrl.startsWith("data:")) {
+    const webp = await compressToWebp(iconUrl, 256, 0.9);
+    const iconPath = `serverPages/${serverId}/icons/icon_${Date.now()}.webp`;
+    const iconRef = ref(st, iconPath);
 
+    iconUrl = await uploadBlobAndGetUrl(iconRef, webp);
+    iconStoragePath = iconPath;
+  }
   if (shellBackgroundUrl.startsWith("data:")) {
     const webp = await compressToWebp(shellBackgroundUrl, 1600, 0.82);
     const bgRef = ref(st, `serverPages/${serverId}/backgrounds/shell.webp`);
@@ -847,6 +883,8 @@ async function publishToFirebase(payload) {
     ownerUid,
     name: serverName,
     description: String(state.meta?.description || "").trim(),
+    iconUrl,
+    iconStoragePath,
     descriptionHtml: String(state.meta?.descriptionHtml || "").trim(),
     tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
     theme: normalizeTheme(state.meta?.theme || "emerald"),
@@ -880,6 +918,8 @@ async function publishToFirebase(payload) {
     descriptionHtml: String(state.meta?.descriptionHtml || "").trim(),
     tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
     theme: normalizeTheme(state.meta?.theme || "emerald"),
+    iconUrl,
+    iconStoragePath,
     canvasBackgroundUrl,
     shellBackgroundUrl,
     pageBackgroundUrl
@@ -894,6 +934,9 @@ async function publishToFirebase(payload) {
   state.meta.canvasBackgroundUrl = canvasBackgroundUrl;
   state.meta.shellBackgroundUrl = shellBackgroundUrl;
   state.meta.pageBackgroundUrl = pageBackgroundUrl;
+  state.meta.iconUrl = iconUrl;
+  state.meta.iconStoragePath = iconStoragePath;
+renderServerIcon();
   syncCustomThemeControls();
   applyCanvasBackground();
 
@@ -941,6 +984,67 @@ async function handleBackgroundUpload(fileInput, urlKey, storagePathKey, filePre
   } finally {
     if (fileInput) fileInput.value = "";
   }
+}
+async function handleServerIconUpload() {
+  const file = serverIconInput?.files?.[0];
+  if (!file) return;
+
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    const routedServerId = serverIdFromUrl;
+
+    if (!routedServerId) {
+      state.meta.iconUrl = dataUrl;
+      state.meta.iconStoragePath = "";
+      renderServerIcon();
+      saveState();
+      return;
+    }
+
+    const webp = await compressToWebp(dataUrl, 256, 0.9);
+
+    const { storage } = await loadFirebase();
+    const { ref } = storage;
+
+    const st = window.bcStorage;
+    if (!st) throw new Error("Storage not ready.");
+
+    if (state.meta.iconStoragePath) {
+      await deleteStorageFile(state.meta.iconStoragePath);
+    }
+
+    const iconPath = `serverPages/${routedServerId}/icons/icon_${Date.now()}.webp`;
+    const iconRef = ref(st, iconPath);
+
+    const iconUrl = await uploadBlobAndGetUrl(iconRef, webp);
+
+    state.meta.iconUrl = iconUrl;
+    state.meta.iconStoragePath = iconPath;
+
+    renderServerIcon();
+    saveState();
+  } catch (err) {
+    console.error("Server icon upload failed:", err);
+    alert("Could not upload server icon.");
+  } finally {
+    if (serverIconInput) serverIconInput.value = "";
+  }
+}
+
+async function handleServerIconRemove() {
+  try {
+    if (state.meta.iconStoragePath) {
+      await deleteStorageFile(state.meta.iconStoragePath);
+    }
+  } catch (err) {
+    console.warn("Server icon delete failed:", err);
+  }
+
+  state.meta.iconUrl = "";
+  state.meta.iconStoragePath = "";
+
+  renderServerIcon();
+  saveState();
 }
 
 async function handleBackgroundRemove(urlKey, storagePathKey) {
@@ -1671,6 +1775,8 @@ async function loadServerPageFromFirebase(serverId) {
       ? pageData.meta.tags
       : (Array.isArray(serverData.tags) ? serverData.tags : []),
     theme: normalizeTheme(pageData?.meta?.theme || serverData.theme || "emerald"),
+    iconUrl: String(draftData?.meta?.iconUrl || serverData?.iconUrl || "").trim(),
+    iconStoragePath: String(draftData?.meta?.iconStoragePath || serverData?.iconStoragePath || "").trim(),
     canvasBackgroundUrl: String(pageData?.meta?.canvasBackgroundUrl || "").trim(),
     canvasBackgroundStoragePath: "",
     shellBackgroundUrl: String(pageData?.meta?.shellBackgroundUrl || "").trim(),
@@ -2028,6 +2134,8 @@ function resetState() {
   state.meta = {
     description: "",
     descriptionHtml: "",
+    iconUrl: "",
+    iconStoragePath: "",
     tags: [],
     theme: "emerald",
     canvasBackgroundUrl: "",
@@ -2532,7 +2640,13 @@ function sanitizeRichText(dirtyHtml) {
 
   return template.innerHTML
 }
+addServerIconBtn?.addEventListener("click", () => {
+  serverIconInput?.click();
+});
 
+serverIconInput?.addEventListener("change", handleServerIconUpload);
+
+removeServerIconBtn?.addEventListener("click", handleServerIconRemove);
 function getRichEditorHtml(editor) {
   if (!editor) return ""
   return sanitizeRichText(editor.innerHTML)

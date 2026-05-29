@@ -38,6 +38,23 @@
           <div class="panel-title">Server Info</div>
             <div class="stack">
               <label class="field">
+                <span class="label">Server Icon</span>
+
+                <div class="server-icon-upload-row">
+                  <button id="addServerIconBtn" type="button" class="btn small">
+                    Upload server icon
+                  </button>
+
+                  <button id="removeServerIconBtn" type="button" class="btn small ghost">
+                    Remove
+                  </button>
+                </div>
+
+                <input id="serverIconInput" type="file" accept="image/*" hidden />
+
+                <span class="muted small">Best as a square image. PNG or JPG is fine.</span>
+              </label>
+              <label class="field">
                 <span class="label">Description</span>
                  <div
                     id="serverDescriptionInput"
