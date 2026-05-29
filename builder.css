@@ -155,11 +155,12 @@ body {
 }
 
 .logo-mark {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--green), #39d98a);
-  box-shadow: 0 8px 18px rgba(29, 191, 115, 0.28);
+  object-fit: cover;
+  display: block;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.22);
 }
 
 .logo-text {
