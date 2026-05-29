@@ -1672,17 +1672,6 @@ input.vote-username-input {
   opacity: 0.9;
 }
 
-.server-card-banner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: var(--server-banner-image);
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.92;
-}
-
 .server-card-banner-shade {
   position: absolute;
   inset: 0;
