@@ -13,7 +13,7 @@ import {
 const GRID = {
   columns: 120,
   rows: 160,
-  width: 1360,
+  width: 984,
   height: 900,
   gap: 1,
   padding: 16
@@ -332,8 +332,6 @@ function makeBlockShell() {
 function renderBlock(b) {
   const { el, body } = makeBlockShell();
   const { px, py, pw, ph } = gridToPx(b.x || 0, b.y || 0, b.w || 1, b.h || 1);
-  console.log("LIVE BLOCK DATA", b);
-  console.log("LIVE BLOCK PX", { px, py, pw, ph });
   el.style.left = `${px}px`;
   el.style.top = `${py}px`;
   el.style.width = `${pw}px`;
