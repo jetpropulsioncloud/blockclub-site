@@ -536,10 +536,14 @@ function renderBanner(serverData) {
   if (!els.coverWrap) return;
 
   const bannerUrl = String(serverData.bannerUrl || serverData.coverUrl || "").trim();
+
   if (!bannerUrl) {
     els.coverWrap.innerHTML = "";
+    els.coverWrap.style.display = "none";
     return;
   }
+
+  els.coverWrap.style.display = "";
 
   els.coverWrap.innerHTML = `
     <img

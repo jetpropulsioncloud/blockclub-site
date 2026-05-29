@@ -1591,3 +1591,6 @@ input.vote-username-input {
 .pv-text p:empty::before {
   content: "\00a0";
 }
+.cover-img:empty {
+  display: none;
+}
