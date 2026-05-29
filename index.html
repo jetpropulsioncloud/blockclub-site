@@ -1114,10 +1114,18 @@
 
         featuredCard.innerHTML = `
           <div
-            class="featured-banner"
-            style="--featured-banner-image: url('${escapeHtml(bannerUrl)}');"
+            class="server-card-banner auto-server-banner featured-banner"
+            style="--server-banner-image: url('${escapeHtml(bannerUrl)}');"
           >
-            <div class="featured-banner-shade"></div>
+            <div class="server-card-banner-blur"></div>
+            <div class="server-card-banner-shade"></div>
+
+            <img
+              class="server-card-real-icon featured-banner-icon"
+              src="${escapeHtml(iconUrl)}"
+              alt="${escapeHtml(server.name || "Server")} icon"
+              loading="lazy"
+            />
           </div>
 
           <div class="fc-top featured-real-top">

@@ -1650,3 +1650,71 @@ input.vote-username-input {
   margin-top: 14px;
   margin-bottom: 14px;
 }
+.server-card-banner {
+  position: relative;
+  height: 118px;
+  margin: -14px -14px 0;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.92));
+}
+
+.server-card-banner::before,
+.server-card-banner-blur {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  background-image: var(--server-banner-image);
+  background-size: cover;
+  background-position: center;
+  filter: blur(18px);
+  transform: scale(1.12);
+  opacity: 0.9;
+}
+
+.server-card-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--server-banner-image);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.92;
+}
+
+.server-card-banner-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.22), transparent 28%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.64));
+}
+
+.server-card-real-icon {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  z-index: 2;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  object-fit: cover;
+  display: block;
+  background: #0f172a;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.32);
+}
+
+.featured-card {
+  overflow: hidden;
+  padding: 0;
+}
+
+.featured-banner {
+  height: 112px;
+  margin: 0 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
