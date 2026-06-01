@@ -824,9 +824,12 @@
       import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
       import {
         collection,
+        doc,
         getDocs,
         limit,
         query,
+        serverTimestamp,
+        setDoc,
         where
       } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
       const PAYPAL_PLANS = {
@@ -876,8 +879,28 @@
             });
           },
 
-          onApprove(data) {
-            setCheckoutMessage(`Thanks! PayPal approved your subscription. BlockClub is waiting for PayPal confirmation: ${data.subscriptionID}`);
+          async onApprove(data) {
+            if (!currentUser || !activeServerId) {
+              setCheckoutMessage("PayPal approved, but BlockClub could not find your server. Please contact support.");
+              return;
+            }
+
+            const isFeaturedTier = tier === "boost" || tier === "realm";
+
+            await setDoc(doc(db, "servers", activeServerId), {
+              premiumTier: tier,
+              premiumStatus: "active",
+              premiumSubscriptionId: data.subscriptionID || "",
+              premiumOwnerUid: currentUser.uid,
+              premiumUpdatedAt: serverTimestamp(),
+
+              isPremium: true,
+              isFeatured: isFeaturedTier,
+              featured: isFeaturedTier,
+              featuredRank: tier === "realm" ? 1 : tier === "boost" ? 10 : 999
+            }, { merge: true });
+
+            setCheckoutMessage(`Success! Your server is now on the ${tier} plan.`);
           },
 
           onError(error) {
