@@ -462,6 +462,8 @@ function clearStateObject() {
     theme: "emerald",
     canvasBackgroundUrl: "",
     canvasBackgroundStoragePath: "",
+    iconUrl: "",
+    iconStoragePath: "",
     shellBackgroundUrl: "",
     shellBackgroundStoragePath: "",
     pageBackgroundUrl: "",
@@ -2550,10 +2552,14 @@ async function loadState() {
       if (draftData) {
         clearStateObject();
         state.meta = {
-          description: draftData?.meta?.description || "",
-          descriptionHtml: draftData?.meta?.descriptionHtml || "",
-          tags: Array.isArray(draftData?.meta?.tags) ? draftData.meta.tags : [],
-          theme: normalizeTheme(draftData?.meta?.theme || "emerald"),
+          description: draftData?.meta?.description || serverData.description || "",
+          descriptionHtml: draftData?.meta?.descriptionHtml || serverData.descriptionHtml || "",
+          tags: Array.isArray(draftData?.meta?.tags)
+            ? draftData.meta.tags
+            : (Array.isArray(serverData.tags) ? serverData.tags : []),
+          theme: normalizeTheme(draftData?.meta?.theme || serverData.theme || "emerald"),
+          iconUrl: String(draftData?.meta?.iconUrl || serverData?.iconUrl || "").trim(),
+          iconStoragePath: String(draftData?.meta?.iconStoragePath || serverData?.iconStoragePath || "").trim(),
           canvasBackgroundUrl: String(draftData?.meta?.canvasBackgroundUrl || "").trim(),
           canvasBackgroundStoragePath: String(draftData?.meta?.canvasBackgroundStoragePath || "").trim(),
           shellBackgroundUrl: String(draftData?.meta?.shellBackgroundUrl || "").trim(),
