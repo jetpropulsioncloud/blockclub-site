@@ -29,6 +29,7 @@ const addServerIconBtn = document.getElementById("addServerIconBtn");
 const removeServerIconBtn = document.getElementById("removeServerIconBtn");
 const serverIconInput = document.getElementById("serverIconInput");
 const stageServerIcon = document.querySelector(".server-mini .server-icon");
+
 const bcRichSize = document.getElementById("bcRichSize")
 const bcRichColor = document.getElementById("bcRichColor")
 const decoLayer = document.getElementById("decoLayer");
@@ -92,9 +93,164 @@ const exportDialog = document.getElementById("exportDialog");
 const exportArea = document.getElementById("exportArea");
 const closeExport = document.getElementById("closeExport");
 const copyExport = document.getElementById("copyExport");
-const MAX_TEXT_BLOCKS = 5;
-const MAX_IMAGE_BLOCKS = 5;
-const MAX_DECOS = 10;
+const builderPremiumBadge = document.getElementById("builderPremiumBadge");
+const PREMIUM_VISUALS = {
+  free: {
+    label: "Free Builder",
+    className: "is-free"
+  },
+  creator: {
+    label: "Creator Active",
+    className: "is-creator"
+  },
+  boost: {
+    label: "Boost Active",
+    className: "is-boost"
+  },
+  realm: {
+    label: "Realm Active",
+    className: "is-realm"
+  }
+};
+
+function updateBuilderPremiumVisuals(serverData = {}) {
+  const status = String(serverData?.premiumStatus || "").toLowerCase();
+  const tier = status === "active"
+    ? normalizePremiumTier(serverData?.premiumTier)
+    : "free";
+
+  activePremiumTier = tier;
+  document.body.dataset.premiumTier = tier;
+  document.body.dataset.premiumStatus = status || "inactive";
+
+  const visual = PREMIUM_VISUALS[tier] || PREMIUM_VISUALS.free;
+
+  if (builderPremiumBadge) {
+    builderPremiumBadge.className = `builder-premium-badge ${visual.className}`;
+    builderPremiumBadge.textContent = visual.label;
+    builderPremiumBadge.title = `premiumTier: ${tier} | premiumStatus: ${status || "inactive"}`;
+  }
+
+  console.log("[BlockClub Premium Debug]", {
+    serverId: getActiveServerId(),
+    premiumTier: tier,
+    premiumStatus: status || "inactive",
+    premiumSubscriptionId: serverData?.premiumSubscriptionId || "",
+    isPremium: !!serverData?.isPremium,
+    isFeatured: !!serverData?.isFeatured,
+    featuredRank: serverData?.featuredRank ?? null
+  });
+}
+
+window.bcPremiumDebug = function () {
+  return {
+    serverId: getActiveServerId(),
+    premiumTier: activePremiumTier,
+    premiumStatus: document.body.dataset.premiumStatus || "inactive",
+    badge: builderPremiumBadge?.textContent || "",
+    bodyTier: document.body.dataset.premiumTier || ""
+  };
+};
+
+window.bcPreviewPremiumTier = function (tier) {
+  const fakeTier = normalizePremiumTier(tier);
+  updateBuilderPremiumVisuals({
+    premiumTier: fakeTier,
+    premiumStatus: fakeTier === "free" ? "inactive" : "active",
+    isPremium: fakeTier !== "free",
+    isFeatured: fakeTier === "boost" || fakeTier === "realm",
+    featuredRank: fakeTier === "realm" ? 1 : fakeTier === "boost" ? 10 : 999
+  });
+};
+const PREMIUM_LIMITS = {
+  free: {
+    label: "Free",
+    maxPages: 1,
+    maxTextBlocks: 5,
+    maxImageBlocks: 5,
+    maxDecorations: 10,
+    customBackgrounds: false,
+    earlyAccess: false
+  },
+  creator: {
+    label: "Creator",
+    maxPages: 3,
+    maxTextBlocks: 10,
+    maxImageBlocks: 10,
+    maxDecorations: 25,
+    customBackgrounds: true,
+    earlyAccess: false
+  },
+  boost: {
+    label: "Boost",
+    maxPages: 3,
+    maxTextBlocks: 12,
+    maxImageBlocks: 12,
+    maxDecorations: 35,
+    customBackgrounds: true,
+    earlyAccess: false
+  },
+  realm: {
+    label: "Realm",
+    maxPages: 5,
+    maxTextBlocks: 20,
+    maxImageBlocks: 20,
+    maxDecorations: 60,
+    customBackgrounds: true,
+    earlyAccess: true
+  }
+};
+
+let activePremiumTier = "free";
+
+function normalizePremiumTier(value) {
+  const tier = String(value || "free").toLowerCase();
+
+  if (["creator", "boost", "realm"].includes(tier)) {
+    return tier;
+  }
+
+  return "free";
+}
+
+function getPremiumLimits() {
+  return PREMIUM_LIMITS[activePremiumTier] || PREMIUM_LIMITS.free;
+}
+
+function applyPremiumFromServerData(serverData) {
+  const status = String(serverData?.premiumStatus || "").toLowerCase();
+  const tier = normalizePremiumTier(serverData?.premiumTier);
+
+  activePremiumTier = status === "active" ? tier : "free";
+
+  applyPremiumUi();
+}
+function applyPremiumUi() {
+  const limits = getPremiumLimits();
+
+  if (customThemeControls) {
+    customThemeControls.style.opacity = limits.customBackgrounds ? "1" : "0.45";
+    customThemeControls.style.pointerEvents = limits.customBackgrounds ? "auto" : "none";
+  }
+
+  const buttons = [
+    addCanvasBackgroundBtn,
+    removeCanvasBackgroundBtn,
+    addShellBackgroundBtn,
+    removeShellBackgroundBtn,
+    addPageBackgroundBtn,
+    removePageBackgroundBtn
+  ];
+
+  for (const btn of buttons) {
+    if (btn) {
+      btn.disabled = !limits.customBackgrounds;
+      btn.title = limits.customBackgrounds
+        ? ""
+        : "Custom backgrounds require Creator, Boost, or Realm.";
+    }
+  }
+}
 const params = new URLSearchParams(window.location.search);
 const serverIdFromUrl = params.get("serverId");
 const voteEnabledInput = document.getElementById("voteEnabledInput");
@@ -1644,8 +1800,9 @@ function setupDecoResize(decoEl, handleEl, d) {
 }
 
 function addTextBlock() {
-  if (state.blocks.filter(b => b.type === "text").length >= MAX_TEXT_BLOCKS) {
-    alert("Maximum text boxes reached.");
+  const limits = getPremiumLimits();
+  if (state.blocks.filter(b => b.type === "text").length >= limits.maxTextBlocks) {
+    alert(`${limits.label} allows up to ${limits.maxTextBlocks} text boxes.`);
     return;
   }
   const id = uid("blk");
@@ -1664,8 +1821,10 @@ function addTextBlock() {
 }
 
 function addImageBlock() {
-  if (state.blocks.filter(b => b.type === "image").length >= MAX_IMAGE_BLOCKS) {
-    alert("Maximum image boxes reached.");
+  const limits = getPremiumLimits();
+
+  if (state.blocks.filter(b => b.type === "image").length >= limits.maxImageBlocks) {
+    alert(`${limits.label} allows up to ${limits.maxImageBlocks} image boxes.`);
     return;
   }
   const id = uid("blk");
@@ -1686,8 +1845,9 @@ function addImageBlock() {
 function addEmojiDeco() {
   setDecoMode(true);
   const emojiCount = state.decorations.filter(d => d.type === "emoji").length;
-  if (emojiCount >= 10) {
-    alert("Max 10 emojis for now.");
+  const limits = getPremiumLimits();
+  if (emojiCount >= limits.maxDecorations) {
+    alert(`${limits.label} allows up to ${limits.maxDecorations} decorations.`);
     return;
   }
   const raw = (emojiInput.value || "✨").trim() || "✨";
@@ -2041,13 +2201,18 @@ async function loadState() {
   if (routedServerId) {
     try {
       const { serverData } = await assertServerOwnership(routedServerId);
+      applyPremiumFromServerData(serverData);
+      updateBuilderPremiumVisuals(serverData);
       await loadVotingConfig(routedServerId);
       const nameEl = document.getElementById("serverNameInput");
       const ipEl = document.getElementById("serverIpInput");
 
       if (nameEl) nameEl.value = serverData.name || "";
       if (ipEl) ipEl.value = serverData.ip || "";
-
+      updateBuilderPremiumVisuals({
+        premiumTier: "free",
+        premiumStatus: "inactive"
+      });
       lockIpField(true);
 
       const draftData = await loadDraftPage(routedServerId);
@@ -2119,7 +2284,8 @@ async function loadState() {
     showBuilderAccessError("You must be signed in with your real account to use the builder.");
     return;
   }
-
+  activePremiumTier = "free";
+  applyPremiumUi();
   lockIpField(false);
 
   clearStateObject();
