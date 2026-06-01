@@ -594,6 +594,43 @@ function pxToGrid(xPx, yPx) {
     y: clamp(gy, 0, 999)
   };
 }
+function copyPageBackgroundFields(page) {
+  return {
+    canvasBackgroundUrl: String(page?.canvasBackgroundUrl || "").trim(),
+    canvasBackgroundStoragePath: String(page?.canvasBackgroundStoragePath || "").trim(),
+    shellBackgroundUrl: String(page?.shellBackgroundUrl || "").trim(),
+    shellBackgroundStoragePath: String(page?.shellBackgroundStoragePath || "").trim(),
+    pageBackgroundUrl: String(page?.pageBackgroundUrl || "").trim(),
+    pageBackgroundStoragePath: String(page?.pageBackgroundStoragePath || "").trim()
+  };
+}
+
+async function preparePageBackgroundsForPublish(page, serverId, st, ref, pageId) {
+  const next = copyPageBackgroundFields(page);
+
+  if (next.canvasBackgroundUrl.startsWith("data:")) {
+    const webp = await compressToWebp(next.canvasBackgroundUrl, 1600, 0.82);
+    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/${pageId}_canvas.webp`);
+    next.canvasBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
+    next.canvasBackgroundStoragePath = `serverPages/${serverId}/backgrounds/${pageId}_canvas.webp`;
+  }
+
+  if (next.shellBackgroundUrl.startsWith("data:")) {
+    const webp = await compressToWebp(next.shellBackgroundUrl, 1600, 0.82);
+    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/${pageId}_shell.webp`);
+    next.shellBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
+    next.shellBackgroundStoragePath = `serverPages/${serverId}/backgrounds/${pageId}_shell.webp`;
+  }
+
+  if (next.pageBackgroundUrl.startsWith("data:")) {
+    const webp = await compressToWebp(next.pageBackgroundUrl, 1600, 0.82);
+    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/${pageId}_page.webp`);
+    next.pageBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
+    next.pageBackgroundStoragePath = `serverPages/${serverId}/backgrounds/${pageId}_page.webp`;
+  }
+
+  return next;
+}
 function makeDraftSafeState() {
   syncActivePageFromCanvas();
 
@@ -605,9 +642,9 @@ function makeDraftSafeState() {
       delete copy.dataUrl;
       return copy;
     }),
-    decorations: (page.decorations || []).map((d) => ({ ...d }))
+    decorations: (page.decorations || []).map((d) => ({ ...d })),
+    ...copyPageBackgroundFields(page)
   }));
-
   return {
     meta: {
       description: String(state.meta?.description || "").trim(),
@@ -704,7 +741,13 @@ function ensureBuilderPages() {
         id: "home",
         title: "Home",
         blocks: Array.isArray(state.blocks) ? state.blocks : [],
-        decorations: Array.isArray(state.decorations) ? state.decorations : []
+        decorations: Array.isArray(state.decorations) ? state.decorations : [],
+        canvasBackgroundUrl: String(state.meta?.canvasBackgroundUrl || "").trim(),
+        canvasBackgroundStoragePath: String(state.meta?.canvasBackgroundStoragePath || "").trim(),
+        shellBackgroundUrl: String(state.meta?.shellBackgroundUrl || "").trim(),
+        shellBackgroundStoragePath: String(state.meta?.shellBackgroundStoragePath || "").trim(),
+        pageBackgroundUrl: String(state.meta?.pageBackgroundUrl || "").trim(),
+        pageBackgroundStoragePath: String(state.meta?.pageBackgroundStoragePath || "").trim()
       }
     ];
   }
@@ -1350,11 +1393,20 @@ async function publishToFirebase(payload) {
       pageId
     );
 
+    const preparedBackgrounds = await preparePageBackgroundsForPublish(
+      page,
+      serverId,
+      st,
+      ref,
+      pageId
+    );
+
     preparedPages.push({
       id: pageId,
       title: String(page.title || "Page"),
       blocks: preparedBlocks,
-      decorations: Array.isArray(page.decorations) ? page.decorations : []
+      decorations: Array.isArray(page.decorations) ? page.decorations : [],
+      ...preparedBackgrounds
     });
   }
 
@@ -1364,16 +1416,14 @@ async function publishToFirebase(payload) {
   };
 
   const nextBlocks = homePage.blocks;
-  let canvasBackgroundUrl = String(state.meta?.canvasBackgroundUrl || "").trim();
-  let shellBackgroundUrl = String(state.meta?.shellBackgroundUrl || "").trim();
-  let pageBackgroundUrl = String(state.meta?.pageBackgroundUrl || "").trim();
+  canvasBackgroundUrl = String(homePage.canvasBackgroundUrl || "").trim();
+  shellBackgroundUrl = String(homePage.shellBackgroundUrl || "").trim();
+  pageBackgroundUrl = String(homePage.pageBackgroundUrl || "").trim();
+  let canvasBackgroundUrl = "";
+  let shellBackgroundUrl = "";
+  let pageBackgroundUrl = "";
   let iconUrl = String(state.meta?.iconUrl || "").trim();
   let iconStoragePath = String(state.meta?.iconStoragePath || "").trim();
-  if (canvasBackgroundUrl.startsWith("data:")) {
-    const webp = await compressToWebp(canvasBackgroundUrl, 1600, 0.82);
-    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/canvas.webp`);
-    canvasBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
-  }
   if (iconUrl.startsWith("data:")) {
     const webp = await compressToWebp(iconUrl, 256, 0.9);
     const iconPath = `serverPages/${serverId}/icons/icon_${Date.now()}.webp`;
@@ -1381,17 +1431,6 @@ async function publishToFirebase(payload) {
 
     iconUrl = await uploadBlobAndGetUrl(iconRef, webp);
     iconStoragePath = iconPath;
-  }
-  if (shellBackgroundUrl.startsWith("data:")) {
-    const webp = await compressToWebp(shellBackgroundUrl, 1600, 0.82);
-    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/shell.webp`);
-    shellBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
-  }
-
-  if (pageBackgroundUrl.startsWith("data:")) {
-    const webp = await compressToWebp(pageBackgroundUrl, 1600, 0.82);
-    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/page.webp`);
-    pageBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
   }
 
   const ownerUid = user.uid;
