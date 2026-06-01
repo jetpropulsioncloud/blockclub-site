@@ -802,6 +802,7 @@ function wireClaimServerButton(serverData, currentUser) {
         return;
       }
 
+      
       await setDoc(claimRef, {
         serverId,
         serverName: serverData.name || "",
