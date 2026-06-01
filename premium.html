@@ -923,26 +923,37 @@
 
         return activeServerId;
       }
-      onAuthStateChanged(auth, user => {
+      onAuthStateChanged(auth, async user => {
         currentUser = user;
 
         if (paypalPlanGrid) {
           paypalPlanGrid.style.display = "grid";
         }
 
-        renderPaypalButtonsOnce();
-
         if (!user) {
+          renderPaypalButtonsOnce();
           setCheckoutMessage("Please log in before choosing a premium plan.");
           return;
         }
 
-        if (!serverId) {
-          setCheckoutMessage("Choose a plan below. If checkout fails, open Premium from your server page so BlockClub knows which server to upgrade.");
-          return;
-        }
+        setCheckoutMessage("Finding your server...");
 
-        setCheckoutMessage("Choose a plan below. PayPal will handle the subscription securely.");
+        try {
+          const resolvedServerId = await resolveOwnerServerId(user);
+
+          if (!resolvedServerId) {
+            renderPaypalButtonsOnce();
+            setCheckoutMessage("No server is connected to your account yet. Please create or claim a server first.");
+            return;
+          }
+
+          renderPaypalButtonsOnce();
+          setCheckoutMessage("Choose a plan below. PayPal will handle the subscription securely.");
+        } catch (error) {
+          console.error("Could not find owner server:", error);
+          renderPaypalButtonsOnce();
+          setCheckoutMessage("Could not find your server yet. Please try opening Premium from your server page.");
+        }
       });
     </script>
   </body>
