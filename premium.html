@@ -442,7 +442,7 @@
 
         <nav class="nav">
           <a href="index.html#servers">Servers</a>
-          <a href="premium.html">Premium</a>
+          <a href="premium.html">Premium Info</a>
           <a href="index.html#discord">Discord</a>
         </nav>
 
@@ -832,6 +832,8 @@
       const checkoutStatus = document.getElementById("checkoutStatus");
       const params = new URLSearchParams(window.location.search);
       const serverId = params.get("serverId");
+      const checkoutCard = document.querySelector(".premium-checkout-card");
+      const paypalPlanGrid = document.querySelector(".paypal-plan-grid");
 
       let currentUser = null;
 
@@ -893,18 +895,24 @@
       onAuthStateChanged(auth, user => {
         currentUser = user;
 
-        renderPaypalButtonsOnce();
-
         if (!user) {
           setCheckoutMessage("Please log in before choosing a premium plan.");
           return;
         }
-
         if (!serverId) {
           setCheckoutMessage("Open Premium from your server page or builder so BlockClub knows which server to upgrade.");
+
+          if (paypalPlanGrid) {
+            paypalPlanGrid.style.display = "none";
+          }
+
           return;
         }
+        if (paypalPlanGrid) {
+          paypalPlanGrid.style.display = "grid";
+        }
 
+        renderPaypalButtonsOnce();
         setCheckoutMessage("Choose a plan below. PayPal will handle the subscription securely.");
       });
     </script>
