@@ -820,9 +820,15 @@
     </main>
     <script src="https://www.paypal.com/sdk/js?client-id=AaOU2Cxb5JVF1ttQJexafuoE0WB8iKej4s9kZ1mfYppJvOkGxPHInWqNozsO999d2FWnssuqJwt0Sjp5&components=buttons&vault=true&intent=subscription&disable-funding=credit,card"></script>
     <script type="module">
-      import { auth } from "./firebase.js";
+      import { auth, db } from "./firebase.js";
       import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-
+      import {
+        collection,
+        getDocs,
+        limit,
+        query,
+        where
+      } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
       const PAYPAL_PLANS = {
         creator: "P-3GB13984SA584183ENIIHHHA",
         boost: "P-9NH09654NT747502SNIIHIRQ",
@@ -831,7 +837,7 @@
 
       const checkoutStatus = document.getElementById("checkoutStatus");
       const params = new URLSearchParams(window.location.search);
-      const serverId = params.get("serverId");
+      let activeServerId = params.get("serverId");
       const checkoutCard = document.querySelector(".premium-checkout-card");
       const paypalPlanGrid = document.querySelector(".paypal-plan-grid");
 
@@ -859,14 +865,14 @@
               throw new Error("User is not logged in.");
             }
 
-            if (!serverId) {
-              setCheckoutMessage("Open this page from your server page or builder so we know which server to upgrade.");
+            if (!activeServerId) {
+              setCheckoutMessage("We could not find a server connected to your account yet.");
               throw new Error("Missing serverId.");
             }
 
             return actions.subscription.create({
               plan_id: planId,
-              custom_id: `${currentUser.uid}|${serverId}|${tier}`
+              custom_id: `${currentUser.uid}|${activeServerId}|${tier}`
             });
           },
 
@@ -891,28 +897,51 @@
         renderButton("#paypal-boost", "boost", PAYPAL_PLANS.boost);
         renderButton("#paypal-realm", "realm", PAYPAL_PLANS.realm);
       }
+      async function resolveOwnerServerId(user) {
+        if (activeServerId) {
+          return activeServerId;
+        }
 
+        const ownedServersQuery = query(
+          collection(db, "servers"),
+          where("ownerUid", "==", user.uid),
+          limit(1)
+        );
+
+        const snap = await getDocs(ownedServersQuery);
+
+        if (snap.empty) {
+          return null;
+        }
+
+        activeServerId = snap.docs[0].id;
+
+        const url = new URL(window.location.href);
+        url.searchParams.set("serverId", activeServerId);
+        url.hash = "checkout";
+        window.history.replaceState({}, "", url.toString());
+
+        return activeServerId;
+      }
       onAuthStateChanged(auth, user => {
         currentUser = user;
 
-        if (!user) {
-          setCheckoutMessage("Please log in before choosing a premium plan.");
-          return;
-        }
-        if (!serverId) {
-          setCheckoutMessage("Open Premium from your server page or builder so BlockClub knows which server to upgrade.");
-
-          if (paypalPlanGrid) {
-            paypalPlanGrid.style.display = "none";
-          }
-
-          return;
-        }
         if (paypalPlanGrid) {
           paypalPlanGrid.style.display = "grid";
         }
 
         renderPaypalButtonsOnce();
+
+        if (!user) {
+          setCheckoutMessage("Please log in before choosing a premium plan.");
+          return;
+        }
+
+        if (!serverId) {
+          setCheckoutMessage("Choose a plan below. If checkout fails, open Premium from your server page so BlockClub knows which server to upgrade.");
+          return;
+        }
+
         setCheckoutMessage("Choose a plan below. PayPal will handle the subscription securely.");
       });
     </script>
