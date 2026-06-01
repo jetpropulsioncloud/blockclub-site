@@ -25,6 +25,42 @@
         font-size: 13px;
         margin: 10px 0 14px;
       }
+      .preview-page-tabs {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 0 0 -1px;
+        padding: 0 8px;
+        position: relative;
+        z-index: 5;
+      }
+
+      .preview-page-tab {
+        border: 1px solid var(--theme-border, rgba(226, 232, 240, 0.9));
+        border-bottom: 0;
+        background: rgba(255, 255, 255, 0.88);
+        color: var(--theme-text, var(--text));
+        border-radius: 14px 14px 0 0;
+        padding: 10px 16px 12px;
+        font-weight: 950;
+        cursor: pointer;
+        box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.08);
+        transform: translateY(1px);
+      }
+
+      .preview-page-tab:hover {
+        background: #ffffff;
+        border-color: var(--theme-accent, #6366f1);
+      }
+
+      .preview-page-tab.active {
+        background: var(--theme-surface-2, #ffffff);
+        color: var(--theme-accent, #6366f1);
+        border-color: var(--theme-accent, #6366f1);
+        padding-top: 14px;
+        transform: translateY(0);
+      }
 
       .preview-canvas {
         position: relative;
@@ -139,6 +175,7 @@
     <main class="preview-shell">
       <div class="preview-stage wrap">
         <div class="preview-note" id="note"></div>
+        <div id="previewPageTabs" class="preview-page-tabs"></div>
         <div id="canvas" class="preview-canvas" aria-label="Preview canvas"></div>
       </div>
     </main>

@@ -525,6 +525,8 @@ function openOrFocusPreview(url) {
 function sendPreviewState() {
   if (!previewWindow || previewWindow.closed) return;
 
+  syncActivePageFromCanvas();
+
   previewWindow.postMessage(
     {
       type: "BC_PREVIEW_STATE",
@@ -533,7 +535,6 @@ function sendPreviewState() {
     window.location.origin
   );
 }
-
 const state = {
   meta: {
     description: "",

@@ -15,7 +15,10 @@ const GRID = {
 };
 const canvas = document.getElementById("canvas");
 const note = document.getElementById("note");
+const previewPageTabs = document.getElementById("previewPageTabs");
 const previewStage = document.querySelector(".preview-stage");
+
+let activePreviewPageId = "home";
 
 if (previewStage && previewCanvasW > 0) {
   previewStage.style.width = `${previewCanvasW}px`;
@@ -64,7 +67,77 @@ function gridToPx(x, y, w, h) {
     height: h * rowH + gap * (h - 1)
   };
 }
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
+function normalizePreviewPages(stateToUse = {}) {
+  const rawPages = Array.isArray(stateToUse.pages) ? stateToUse.pages : [];
+
+  if (rawPages.length) {
+    return rawPages.map((page, index) => ({
+      id: String(page.id || (index === 0 ? "home" : `page_${index + 1}`)),
+      title: String(page.title || (index === 0 ? "Home" : `Page ${index + 1}`)),
+      blocks: Array.isArray(page.blocks) ? page.blocks : [],
+      decorations: Array.isArray(page.decorations) ? page.decorations : []
+    }));
+  }
+
+  return [
+    {
+      id: "home",
+      title: "Home",
+      blocks: Array.isArray(stateToUse.blocks) ? stateToUse.blocks : [],
+      decorations: Array.isArray(stateToUse.decorations) ? stateToUse.decorations : []
+    }
+  ];
+}
+
+function renderPreviewPageTabs(stateToUse, pages) {
+  if (!previewPageTabs) return;
+
+  if (!Array.isArray(pages) || pages.length <= 1) {
+    previewPageTabs.innerHTML = "";
+    previewPageTabs.style.display = "none";
+    return;
+  }
+
+  previewPageTabs.style.display = "";
+
+  previewPageTabs.innerHTML = pages
+    .map((page) => {
+      const isActive = page.id === activePreviewPageId;
+
+      return `
+        <button
+          class="preview-page-tab ${isActive ? "active" : ""}"
+          type="button"
+          data-preview-page-id="${escapeHtml(page.id)}"
+        >
+          ${escapeHtml(page.title || "Page")}
+        </button>
+      `;
+    })
+    .join("");
+
+  previewPageTabs.querySelectorAll("[data-preview-page-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const nextPageId = btn.getAttribute("data-preview-page-id");
+
+      if (!nextPageId || nextPageId === activePreviewPageId) {
+        return;
+      }
+
+      activePreviewPageId = nextPageId;
+      render();
+    });
+  });
+}
 function safeParse(raw) {
   try {
     return JSON.parse(raw);
@@ -164,16 +237,40 @@ async function render() {
     stateToUse = await loadDraftFromFirestore(serverId);
   }
 
-  if (!stateToUse || (!Array.isArray(stateToUse.blocks) && !Array.isArray(stateToUse.decorations))) {
+  if (
+    !stateToUse ||
+    (
+      !Array.isArray(stateToUse.pages) &&
+      !Array.isArray(stateToUse.blocks) &&
+      !Array.isArray(stateToUse.decorations)
+    )
+  ) {
     note.textContent = "No saved layout found. Go to the editor and click Preview.";
     return;
   }
-  
-  applyPreviewBackgrounds(stateToUse);
-  const blocks = Array.isArray(stateToUse.blocks) ? stateToUse.blocks : [];
-  const decos = Array.isArray(stateToUse.decorations) ? stateToUse.decorations : [];
 
-  note.textContent = `Live preview: ${blocks.length} block(s), ${decos.length} decoration(s).`;
+  applyPreviewBackgrounds(stateToUse);
+
+  const pages = normalizePreviewPages(stateToUse);
+
+  if (!pages.some((page) => page.id === activePreviewPageId)) {
+    activePreviewPageId = stateToUse.activePageId || pages[0]?.id || "home";
+  }
+
+  const activePage =
+    pages.find((page) => page.id === activePreviewPageId) ||
+    pages[0] ||
+    {
+      blocks: [],
+      decorations: []
+    };
+
+  const blocks = Array.isArray(activePage.blocks) ? activePage.blocks : [];
+  const decos = Array.isArray(activePage.decorations) ? activePage.decorations : [];
+
+  renderPreviewPageTabs(stateToUse, pages);
+
+  note.textContent = `Live preview: ${activePage.title || "Page"} • ${blocks.length} block(s), ${decos.length} decoration(s).`;
 
   for (const b of blocks) {
     const { left, top, width, height } = gridToPx(b.x || 0, b.y || 0, b.w || 1, b.h || 2);
@@ -222,6 +319,7 @@ async function render() {
   }
 
   const rect = canvas.getBoundingClientRect();
+
   for (const d of decos) {
     if (d.type !== "emoji") continue;
 
