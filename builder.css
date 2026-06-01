@@ -1032,3 +1032,35 @@ body.preview .block-rot {
 .builder-page-rename:hover {
   border-color: var(--theme-accent, #6366f1);
 }
+.builder-add-btn {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.builder-inline-count {
+  margin-left: auto;
+  min-width: 56px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--theme-border, rgba(226, 232, 240, 0.9));
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--theme-text, var(--text));
+  font-size: 12px;
+  font-weight: 950;
+  text-align: center;
+}
+
+.builder-inline-count.is-full {
+  color: #b45309;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.deco-row {
+  display: grid;
+  grid-template-columns: 1fr 1.45fr;
+}
+
+.deco-row .input {
+  width: 100%;
+}

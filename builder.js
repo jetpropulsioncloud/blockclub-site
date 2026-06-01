@@ -458,12 +458,12 @@ function clearStateObject() {
   state.meta = {
     description: "",
     descriptionHtml: "",
+    iconUrl: "",
+    iconStoragePath: "",
     tags: [],
     theme: "emerald",
     canvasBackgroundUrl: "",
     canvasBackgroundStoragePath: "",
-    iconUrl: "",
-    iconStoragePath: "",
     shellBackgroundUrl: "",
     shellBackgroundStoragePath: "",
     pageBackgroundUrl: "",
@@ -661,7 +661,13 @@ function createDefaultPage(title = "Home") {
     id: title === "Home" ? "home" : uid("page"),
     title,
     blocks: [],
-    decorations: []
+    decorations: [],
+    canvasBackgroundUrl: "",
+    canvasBackgroundStoragePath: "",
+    shellBackgroundUrl: "",
+    shellBackgroundStoragePath: "",
+    pageBackgroundUrl: "",
+    pageBackgroundStoragePath: ""
   };
 }
 function normalizeBuilderPages(data = {}) {
@@ -672,7 +678,13 @@ function normalizeBuilderPages(data = {}) {
       id: String(page.id || (index === 0 ? "home" : uid("page"))),
       title: String(page.title || (index === 0 ? "Home" : `Page ${index + 1}`)),
       blocks: Array.isArray(page.blocks) ? page.blocks : [],
-      decorations: Array.isArray(page.decorations) ? page.decorations : []
+      decorations: Array.isArray(page.decorations) ? page.decorations : [],
+      canvasBackgroundUrl: String(page.canvasBackgroundUrl || (index === 0 ? data?.meta?.canvasBackgroundUrl || "" : "")).trim(),
+      canvasBackgroundStoragePath: String(page.canvasBackgroundStoragePath || "").trim(),
+      shellBackgroundUrl: String(page.shellBackgroundUrl || (index === 0 ? data?.meta?.shellBackgroundUrl || "" : "")).trim(),
+      shellBackgroundStoragePath: String(page.shellBackgroundStoragePath || "").trim(),
+      pageBackgroundUrl: String(page.pageBackgroundUrl || (index === 0 ? data?.meta?.pageBackgroundUrl || "" : "")).trim(),
+      pageBackgroundStoragePath: String(page.pageBackgroundStoragePath || "").trim()
     }));
   }
 
@@ -717,6 +729,15 @@ function syncActivePageFromCanvas() {
   const activePage = getActiveBuilderPage();
   activePage.blocks = state.blocks;
   activePage.decorations = state.decorations;
+
+  activePage.canvasBackgroundUrl = String(state.meta?.canvasBackgroundUrl || "").trim();
+  activePage.canvasBackgroundStoragePath = String(state.meta?.canvasBackgroundStoragePath || "").trim();
+
+  activePage.shellBackgroundUrl = String(state.meta?.shellBackgroundUrl || "").trim();
+  activePage.shellBackgroundStoragePath = String(state.meta?.shellBackgroundStoragePath || "").trim();
+
+  activePage.pageBackgroundUrl = String(state.meta?.pageBackgroundUrl || "").trim();
+  activePage.pageBackgroundStoragePath = String(state.meta?.pageBackgroundStoragePath || "").trim();
 }
 
 function loadActivePageIntoCanvas() {
@@ -724,8 +745,20 @@ function loadActivePageIntoCanvas() {
 
   state.blocks = Array.isArray(activePage.blocks) ? activePage.blocks : [];
   state.decorations = Array.isArray(activePage.decorations) ? activePage.decorations : [];
+
+  state.meta.canvasBackgroundUrl = String(activePage.canvasBackgroundUrl || "").trim();
+  state.meta.canvasBackgroundStoragePath = String(activePage.canvasBackgroundStoragePath || "").trim();
+
+  state.meta.shellBackgroundUrl = String(activePage.shellBackgroundUrl || "").trim();
+  state.meta.shellBackgroundStoragePath = String(activePage.shellBackgroundStoragePath || "").trim();
+
+  state.meta.pageBackgroundUrl = String(activePage.pageBackgroundUrl || "").trim();
+  state.meta.pageBackgroundStoragePath = String(activePage.pageBackgroundStoragePath || "").trim();
+
   state.selectedBlockId = null;
   state.selectedDecoId = null;
+
+  applyCanvasBackground();
 }
 
 function renameBuilderPage(pageId) {
@@ -2554,12 +2587,12 @@ async function loadState() {
         state.meta = {
           description: draftData?.meta?.description || serverData.description || "",
           descriptionHtml: draftData?.meta?.descriptionHtml || serverData.descriptionHtml || "",
+          iconUrl: String(draftData?.meta?.iconUrl || serverData?.iconUrl || "").trim(),
+          iconStoragePath: String(draftData?.meta?.iconStoragePath || serverData?.iconStoragePath || "").trim(),
           tags: Array.isArray(draftData?.meta?.tags)
             ? draftData.meta.tags
             : (Array.isArray(serverData.tags) ? serverData.tags : []),
           theme: normalizeTheme(draftData?.meta?.theme || serverData.theme || "emerald"),
-          iconUrl: String(draftData?.meta?.iconUrl || serverData?.iconUrl || "").trim(),
-          iconStoragePath: String(draftData?.meta?.iconStoragePath || serverData?.iconStoragePath || "").trim(),
           canvasBackgroundUrl: String(draftData?.meta?.canvasBackgroundUrl || "").trim(),
           canvasBackgroundStoragePath: String(draftData?.meta?.canvasBackgroundStoragePath || "").trim(),
           shellBackgroundUrl: String(draftData?.meta?.shellBackgroundUrl || "").trim(),

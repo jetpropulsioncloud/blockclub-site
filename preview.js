@@ -84,7 +84,10 @@ function normalizePreviewPages(stateToUse = {}) {
       id: String(page.id || (index === 0 ? "home" : `page_${index + 1}`)),
       title: String(page.title || (index === 0 ? "Home" : `Page ${index + 1}`)),
       blocks: Array.isArray(page.blocks) ? page.blocks : [],
-      decorations: Array.isArray(page.decorations) ? page.decorations : []
+      decorations: Array.isArray(page.decorations) ? page.decorations : [],
+      canvasBackgroundUrl: String(page.canvasBackgroundUrl || stateToUse?.meta?.canvasBackgroundUrl || "").trim(),
+      shellBackgroundUrl: String(page.shellBackgroundUrl || stateToUse?.meta?.shellBackgroundUrl || "").trim(),
+      pageBackgroundUrl: String(page.pageBackgroundUrl || stateToUse?.meta?.pageBackgroundUrl || "").trim()
     }));
   }
 
@@ -171,7 +174,7 @@ function getPreviewShellTarget() {
   );
 }
 
-function applyPreviewBackgrounds(stateToUse) {
+function applyPreviewBackgrounds(stateToUse, activePage = null) {
   const shell = getPreviewShellTarget();
   const page = document.body;
 
@@ -179,9 +182,9 @@ function applyPreviewBackgrounds(stateToUse) {
   if (shell && shell !== canvas) clearBackgroundStyles(shell);
   clearBackgroundStyles(page);
 
-  const canvasBg = String(stateToUse?.meta?.canvasBackgroundUrl || "").trim();
-  const shellBg = String(stateToUse?.meta?.shellBackgroundUrl || "").trim();
-  const pageBg = String(stateToUse?.meta?.pageBackgroundUrl || "").trim();
+  const canvasBg = String(activePage?.canvasBackgroundUrl || stateToUse?.meta?.canvasBackgroundUrl || "").trim();
+  const shellBg = String(activePage?.shellBackgroundUrl || stateToUse?.meta?.shellBackgroundUrl || "").trim();
+  const pageBg = String(activePage?.pageBackgroundUrl || stateToUse?.meta?.pageBackgroundUrl || "").trim();
 
   if (canvasBg) {
     applyBackgroundStyles(canvas, canvasBg);
@@ -267,7 +270,7 @@ async function render() {
 
   const blocks = Array.isArray(activePage.blocks) ? activePage.blocks : [];
   const decos = Array.isArray(activePage.decorations) ? activePage.decorations : [];
-
+  applyPreviewBackgrounds(stateToUse, activePage);
   renderPreviewPageTabs(stateToUse, pages);
 
   note.textContent = `Live preview: ${activePage.title || "Page"} • ${blocks.length} block(s), ${decos.length} decoration(s).`;

@@ -117,26 +117,16 @@
 
           <div class="panel-title">Blocks</div>
 
-          <div class="builder-counts">
-            <div class="builder-count">
-              <span>Text boxes</span>
-              <strong id="textBoxCount">0 / 5</strong>
-            </div>
-
-            <div class="builder-count">
-              <span>Images</span>
-              <strong id="imageBoxCount">0 / 5</strong>
-            </div>
-
-            <div class="builder-count">
-              <span>Emojis</span>
-              <strong id="emojiCount">0 / 10</strong>
-            </div>
-          </div>
-
           <div class="stack">
-            <button class="btn" id="addText" type="button">Add Text Box</button>
-            <button class="btn" id="addImage" type="button">Add Image Box</button>
+            <button class="btn builder-add-btn" id="addText" type="button">
+              <span>Add Text Box</span>
+              <strong id="textBoxCount" class="builder-inline-count">0 / 5</strong>
+            </button>
+
+            <button class="btn builder-add-btn" id="addImage" type="button">
+              <span>Add Image Box</span>
+              <strong id="imageBoxCount" class="builder-inline-count">0 / 5</strong>
+            </button>
           </div>
 
           <div class="panel-title">Text style</div>
@@ -158,7 +148,11 @@
 
           <div class="deco-row">
             <input id="emojiInput" class="input" value="✨" maxlength="4" />
-            <button class="btn" id="addEmoji" type="button">Add Emoji</button>
+
+            <button class="btn builder-add-btn" id="addEmoji" type="button">
+              <span>Add Emoji</span>
+              <strong id="emojiCount" class="builder-inline-count">0 / 10</strong>
+            </button>
           </div>
           <div class="hr"></div>
           <button class="btn primary" id="publishBtn" type="button">Publish</button>

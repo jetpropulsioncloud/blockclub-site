@@ -122,7 +122,7 @@ function getServerShellTarget() {
   );
 }
 
-function applyPublishedBackgrounds(pageData) {
+function applyPublishedBackgrounds(pageData, activePage = null) {
   const shell = getServerShellTarget();
   const page = document.body;
 
@@ -130,9 +130,9 @@ function applyPublishedBackgrounds(pageData) {
   if (shell && shell !== els.pageCanvas) clearBackgroundStyles(shell);
   clearBackgroundStyles(page);
 
-  const canvasBg = String(pageData?.meta?.canvasBackgroundUrl || "").trim();
-  const shellBg = String(pageData?.meta?.shellBackgroundUrl || "").trim();
-  const pageBg = String(pageData?.meta?.pageBackgroundUrl || "").trim();
+  const canvasBg = String(activePage?.canvasBackgroundUrl || pageData?.meta?.canvasBackgroundUrl || "").trim();
+  const shellBg = String(activePage?.shellBackgroundUrl || pageData?.meta?.shellBackgroundUrl || "").trim();
+  const pageBg = String(activePage?.pageBackgroundUrl || pageData?.meta?.pageBackgroundUrl || "").trim();
 
   if (canvasBg) {
     applyBackgroundStyles(els.pageCanvas, canvasBg);
@@ -657,7 +657,10 @@ function normalizePublishedPages(pageData = {}) {
       id: String(page.id || (index === 0 ? "home" : `page_${index + 1}`)),
       title: String(page.title || (index === 0 ? "Home" : `Page ${index + 1}`)),
       blocks: Array.isArray(page.blocks) ? page.blocks : [],
-      decorations: Array.isArray(page.decorations) ? page.decorations : []
+      decorations: Array.isArray(page.decorations) ? page.decorations : [],
+      canvasBackgroundUrl: String(page.canvasBackgroundUrl || pageData?.meta?.canvasBackgroundUrl || "").trim(),
+      shellBackgroundUrl: String(page.shellBackgroundUrl || pageData?.meta?.shellBackgroundUrl || "").trim(),
+      pageBackgroundUrl: String(page.pageBackgroundUrl || pageData?.meta?.pageBackgroundUrl || "").trim()
     }));
   }
 
@@ -731,6 +734,7 @@ function renderPublishedPage(pageData) {
 
   const blocks = Array.isArray(activePage.blocks) ? activePage.blocks : [];
   const decorations = Array.isArray(activePage.decorations) ? activePage.decorations : [];
+  applyPublishedBackgrounds(pageData, activePage);
 
   renderServerPageTabs(pageData, pages);
 
@@ -802,7 +806,7 @@ function wireClaimServerButton(serverData, currentUser) {
         return;
       }
 
-      
+
       await setDoc(claimRef, {
         serverId,
         serverName: serverData.name || "",
