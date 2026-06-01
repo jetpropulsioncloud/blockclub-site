@@ -94,21 +94,24 @@ const exportArea = document.getElementById("exportArea");
 const closeExport = document.getElementById("closeExport");
 const copyExport = document.getElementById("copyExport");
 const builderPremiumBadge = document.getElementById("builderPremiumBadge");
+const textBoxCount = document.getElementById("textBoxCount");
+const imageBoxCount = document.getElementById("imageBoxCount");
+const emojiCount = document.getElementById("emojiCount");
 const PREMIUM_VISUALS = {
   free: {
     label: "Free Builder",
     className: "is-free"
   },
   creator: {
-    label: "Creator Active",
+    label: "Creator Subscription Active",
     className: "is-creator"
   },
   boost: {
-    label: "Boost Active",
+    label: "Boost Subscription Active",
     className: "is-boost"
   },
   realm: {
-    label: "Realm Active",
+    label: "Realm Subscription Active",
     className: "is-realm"
   }
 };
@@ -216,7 +219,28 @@ function normalizePremiumTier(value) {
 function getPremiumLimits() {
   return PREMIUM_LIMITS[activePremiumTier] || PREMIUM_LIMITS.free;
 }
+function updateBuilderCounters() {
+  const limits = getPremiumLimits();
 
+  const textCount = state.blocks.filter((b) => b.type === "text").length;
+  const imageCount = state.blocks.filter((b) => b.type === "image").length;
+  const decoCount = state.decorations.filter((d) => d.type === "emoji").length;
+
+  if (textBoxCount) {
+    textBoxCount.textContent = `${textCount} / ${limits.maxTextBlocks}`;
+    textBoxCount.classList.toggle("is-full", textCount >= limits.maxTextBlocks);
+  }
+
+  if (imageBoxCount) {
+    imageBoxCount.textContent = `${imageCount} / ${limits.maxImageBlocks}`;
+    imageBoxCount.classList.toggle("is-full", imageCount >= limits.maxImageBlocks);
+  }
+
+  if (emojiCount) {
+    emojiCount.textContent = `${decoCount} / ${limits.maxDecorations}`;
+    emojiCount.classList.toggle("is-full", decoCount >= limits.maxDecorations);
+  }
+}
 function applyPremiumFromServerData(serverData) {
   const status = String(serverData?.premiumStatus || "").toLowerCase();
   const tier = normalizePremiumTier(serverData?.premiumTier);
@@ -719,6 +743,7 @@ function renderAll() {
   }
   for (const d of state.decorations) renderDeco(d);
   renderServerIcon();
+  updateBuilderCounters();
 }
 
 function makeBlockShell(b) {
@@ -2283,7 +2308,7 @@ async function loadState() {
   activePremiumTier = "free";
   applyPremiumUi();
   lockIpField(false);
-
+  updateBuilderCounters();
   clearStateObject();
   addTextBlock();
   addImageBlock();
