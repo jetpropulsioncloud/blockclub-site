@@ -2011,3 +2011,51 @@ body[data-site-theme="dark"] .status.offline {
 body[data-site-theme="dark"] .footer-inner {
   border-top-color: rgba(148, 163, 184, 0.18);
 }
+.server-page-tabs {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: -4px 0 -1px;
+  padding: 0 8px;
+}
+
+.server-page-tab {
+  border: 1px solid var(--theme-border, rgba(226, 232, 240, 0.9));
+  border-bottom: 0;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--theme-text, var(--text));
+  border-radius: 14px 14px 0 0;
+  padding: 10px 16px 12px;
+  font-weight: 950;
+  cursor: pointer;
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.08);
+  transform: translateY(1px);
+}
+
+.server-page-tab:hover {
+  background: #ffffff;
+  border-color: var(--theme-accent, #6366f1);
+}
+
+.server-page-tab.active {
+  background: var(--theme-surface-2, #ffffff);
+  color: var(--theme-accent, #6366f1);
+  border-color: var(--theme-accent, #6366f1);
+  padding-top: 14px;
+  transform: translateY(0);
+}
+
+@media (max-width: 700px) {
+  .server-page-tabs {
+    gap: 6px;
+    padding: 0 4px;
+  }
+
+  .server-page-tab {
+    padding: 9px 12px 10px;
+    font-size: 13px;
+  }
+}

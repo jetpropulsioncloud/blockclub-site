@@ -1117,20 +1117,88 @@ function sanitizeHtml(dirty) {
   for (const el of toRemove) el.remove();
   return t.innerHTML;
 }
+async function prepareBlocksForPublish(blocks, serverId, st, ref, pageId = "home") {
+  const nextBlocks = [];
 
-function buildPublishPayload() {
-  const payload = JSON.parse(JSON.stringify(state));
-  payload.blocks = (payload.blocks || []).filter(
-    (b) => b.type !== "banner" && b.type !== "vote"
-  );
+  for (const b of blocks || []) {
+    const copy = { ...b };
 
-  for (const b of payload.blocks || []) {
-    if (b.type === "text") b.html = sanitizeHtml(b.html);
-    if (b.type === "vote") {
-      b.voteUrl = String(b.voteUrl || "").trim();
-      b.label = String(b.label || "Vote here").trim() || "Vote here";
+    if (copy.type === "text") {
+      copy.html = sanitizeHtml(copy.html || "");
+      nextBlocks.push(copy);
+      continue;
     }
+
+    if (copy.type === "vote") {
+      copy.voteUrl = String(copy.voteUrl || "").trim();
+      copy.label = String(copy.label || "Vote here").trim() || "Vote here";
+      nextBlocks.push(copy);
+      continue;
+    }
+
+    if (copy.type === "image") {
+      if (copy.imageUrl) {
+        delete copy.dataUrl;
+        nextBlocks.push(copy);
+        continue;
+      }
+
+      const dataUrl = String(copy.dataUrl || "");
+
+      if (!dataUrl) {
+        nextBlocks.push(copy);
+        continue;
+      }
+
+      const webp = await compressToWebp(dataUrl, 1200, 0.82);
+      const fileId = safeFileName(`${pageId}_${copy.id || crypto.randomUUID()}`);
+      const storageRef = ref(st, `serverPages/${serverId}/images/${fileId}.webp`);
+      const imageUrl = await uploadBlobAndGetUrl(storageRef, webp);
+
+      delete copy.dataUrl;
+      copy.imageUrl = imageUrl;
+      nextBlocks.push(copy);
+      continue;
+    }
+
+    nextBlocks.push(copy);
   }
+
+  return nextBlocks;
+}
+function buildPublishPayload() {
+  syncActivePageFromCanvas();
+
+  const payload = JSON.parse(JSON.stringify(state));
+
+  payload.pages = Array.isArray(payload.pages) ? payload.pages.map((page, index) => ({
+    id: String(page.id || (index === 0 ? "home" : `page_${index + 1}`)),
+    title: String(page.title || (index === 0 ? "Home" : `Page ${index + 1}`)),
+    blocks: Array.isArray(page.blocks)
+      ? page.blocks.filter((b) => b.type !== "banner" && b.type !== "vote")
+      : [],
+    decorations: Array.isArray(page.decorations) ? page.decorations : []
+  })) : [];
+
+  if (!payload.pages.length) {
+    payload.pages = [
+      {
+        id: "home",
+        title: "Home",
+        blocks: Array.isArray(payload.blocks)
+          ? payload.blocks.filter((b) => b.type !== "banner" && b.type !== "vote")
+          : [],
+        decorations: Array.isArray(payload.decorations) ? payload.decorations : []
+      }
+    ];
+  }
+
+  payload.activePageId = payload.activePageId || "home";
+
+  const homePage = payload.pages.find((page) => page.id === "home") || payload.pages[0];
+
+  payload.blocks = Array.isArray(homePage.blocks) ? homePage.blocks : [];
+  payload.decorations = Array.isArray(homePage.decorations) ? homePage.decorations : [];
 
   return payload;
 }
@@ -1221,37 +1289,46 @@ async function publishToFirebase(payload) {
   const serverId = serverRef.id;
 
   let bannerUrl = "";
-  const nextBlocks = [];
 
-  for (const b of payload.blocks || []) {
-    if (b.type === "image") {
-      if (b.imageUrl) {
-        const copy = { ...b };
-        delete copy.dataUrl;
-        nextBlocks.push(copy);
-        continue;
-      }
+  syncActivePageFromCanvas();
 
-      const dataUrl = String(b.dataUrl || "");
-      if (!dataUrl) {
-        nextBlocks.push(b);
-        continue;
-      }
+  const rawPages = Array.isArray(payload.pages) && payload.pages.length
+    ? payload.pages
+    : [
+        {
+          id: "home",
+          title: "Home",
+          blocks: Array.isArray(payload.blocks) ? payload.blocks : [],
+          decorations: Array.isArray(payload.decorations) ? payload.decorations : []
+        }
+      ];
 
-      const webp = await compressToWebp(dataUrl, 1200, 0.82);
-      const fileId = safeFileName(b.id || crypto.randomUUID());
-      const storageRef = ref(st, `serverPages/${serverId}/images/${fileId}.webp`);
-      const imageUrl = await uploadBlobAndGetUrl(storageRef, webp);
+  const preparedPages = [];
 
-      const copy = { ...b };
-      delete copy.dataUrl;
-      copy.imageUrl = imageUrl;
-      nextBlocks.push(copy);
-      continue;
-    }
+  for (const page of rawPages) {
+    const pageId = String(page.id || uid("page"));
+    const preparedBlocks = await prepareBlocksForPublish(
+      Array.isArray(page.blocks) ? page.blocks : [],
+      serverId,
+      st,
+      ref,
+      pageId
+    );
 
-    nextBlocks.push(b);
+    preparedPages.push({
+      id: pageId,
+      title: String(page.title || "Page"),
+      blocks: preparedBlocks,
+      decorations: Array.isArray(page.decorations) ? page.decorations : []
+    });
   }
+
+  const homePage = preparedPages.find((page) => page.id === "home") || preparedPages[0] || {
+    blocks: [],
+    decorations: []
+  };
+
+  const nextBlocks = homePage.blocks;
   let canvasBackgroundUrl = String(state.meta?.canvasBackgroundUrl || "").trim();
   let shellBackgroundUrl = String(state.meta?.shellBackgroundUrl || "").trim();
   let pageBackgroundUrl = String(state.meta?.pageBackgroundUrl || "").trim();
@@ -1317,20 +1394,22 @@ async function publishToFirebase(payload) {
 
   await setDoc(pageRef, {
     serverId,
-    version: 1,
-  meta: {
-    description: String(state.meta?.description || "").trim(),
-    descriptionHtml: String(state.meta?.descriptionHtml || "").trim(),
-    tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
-    theme: normalizeTheme(state.meta?.theme || "emerald"),
-    iconUrl,
-    iconStoragePath,
-    canvasBackgroundUrl,
-    shellBackgroundUrl,
-    pageBackgroundUrl
-  },
+    version: 2,
+    meta: {
+      description: String(state.meta?.description || "").trim(),
+      descriptionHtml: String(state.meta?.descriptionHtml || "").trim(),
+      tags: Array.isArray(state.meta?.tags) ? state.meta.tags : [],
+      theme: normalizeTheme(state.meta?.theme || "emerald"),
+      iconUrl,
+      iconStoragePath,
+      canvasBackgroundUrl,
+      shellBackgroundUrl,
+      pageBackgroundUrl
+    },
     blocks: nextBlocks,
-    decorations: payload.decorations || [],
+    decorations: homePage.decorations || [],
+    pages: preparedPages,
+    activePageId: payload.activePageId || state.activePageId || "home",
     updatedAt: serverTimestamp()
   }, { merge: true });
 
@@ -1346,8 +1425,9 @@ renderServerIcon();
   applyCanvasBackground();
 
   lockIpField(true);
-  const usedPaths = nextBlocks
-    .map(b => b.storagePath)
+  const usedPaths = preparedPages
+    .flatMap((page) => Array.isArray(page.blocks) ? page.blocks : [])
+    .map((b) => b.storagePath)
     .filter(Boolean);
 
   await cleanupUnusedDraftImages(serverId, usedPaths);
@@ -2214,8 +2294,9 @@ async function loadServerPageFromFirebase(serverId) {
 
   lockIpField(true);
 
-  state.blocks = Array.isArray(pageData.blocks) ? pageData.blocks : [];
-  state.decorations = Array.isArray(pageData.decorations) ? pageData.decorations : [];
+  state.pages = normalizeBuilderPages(pageData);
+  state.activePageId = pageData.activePageId || state.pages[0]?.id || "home";
+  loadActivePageIntoCanvas();
 
   renderAll();
   syncStagePreview();

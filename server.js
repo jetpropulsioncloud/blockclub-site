@@ -40,6 +40,7 @@ const els = {
   spTags: document.getElementById("spTags"),
   spDesc: document.getElementById("spDesc"),
   pageCanvas: document.getElementById("pageCanvas"),
+  serverPageTabs: document.getElementById("serverPageTabs"),
   claimServerCard: document.getElementById("claimServerCard"),
   claimServerBtn: document.getElementById("claimServerBtn"),
   claimServerMsg: document.getElementById("claimServerMsg"),
@@ -52,6 +53,7 @@ const els = {
 };
 let currentViewer = null;
 let currentServerData = null;
+let activePublishedPageId = "home";
 function getDraftKey(serverId) {
   return serverId ? `bc_builder_state_${serverId}` : "bc_builder_state_v1";
 }
@@ -647,11 +649,90 @@ function renderTags(tags) {
     .join("");
 }
 
+function normalizePublishedPages(pageData = {}) {
+  const rawPages = Array.isArray(pageData.pages) ? pageData.pages : [];
+
+  if (rawPages.length) {
+    return rawPages.map((page, index) => ({
+      id: String(page.id || (index === 0 ? "home" : `page_${index + 1}`)),
+      title: String(page.title || (index === 0 ? "Home" : `Page ${index + 1}`)),
+      blocks: Array.isArray(page.blocks) ? page.blocks : [],
+      decorations: Array.isArray(page.decorations) ? page.decorations : []
+    }));
+  }
+
+  return [
+    {
+      id: "home",
+      title: "Home",
+      blocks: Array.isArray(pageData.blocks) ? pageData.blocks : [],
+      decorations: Array.isArray(pageData.decorations) ? pageData.decorations : []
+    }
+  ];
+}
+
+function renderServerPageTabs(pageData, pages) {
+  if (!els.serverPageTabs) return;
+
+  if (!Array.isArray(pages) || pages.length <= 1) {
+    els.serverPageTabs.innerHTML = "";
+    els.serverPageTabs.style.display = "none";
+    return;
+  }
+
+  els.serverPageTabs.style.display = "";
+
+  els.serverPageTabs.innerHTML = pages
+    .map((page) => {
+      const isActive = page.id === activePublishedPageId;
+
+      return `
+        <button
+          class="server-page-tab ${isActive ? "active" : ""}"
+          type="button"
+          data-server-page-id="${escapeHtml(page.id)}"
+        >
+          ${escapeHtml(page.title || "Page")}
+        </button>
+      `;
+    })
+    .join("");
+
+  els.serverPageTabs.querySelectorAll("[data-server-page-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const nextPageId = btn.getAttribute("data-server-page-id");
+
+      if (!nextPageId || nextPageId === activePublishedPageId) {
+        return;
+      }
+
+      activePublishedPageId = nextPageId;
+      renderPublishedPage(pageData);
+    });
+  });
+}
+
 function renderPublishedPage(pageData) {
   if (!els.pageCanvas) return;
 
-  const blocks = Array.isArray(pageData.blocks) ? pageData.blocks : [];
-  const decorations = Array.isArray(pageData.decorations) ? pageData.decorations : [];
+  const pages = normalizePublishedPages(pageData);
+
+  if (!pages.some((page) => page.id === activePublishedPageId)) {
+    activePublishedPageId = pageData.activePageId || pages[0]?.id || "home";
+  }
+
+  const activePage =
+    pages.find((page) => page.id === activePublishedPageId) ||
+    pages[0] ||
+    {
+      blocks: [],
+      decorations: []
+    };
+
+  const blocks = Array.isArray(activePage.blocks) ? activePage.blocks : [];
+  const decorations = Array.isArray(activePage.decorations) ? activePage.decorations : [];
+
+  renderServerPageTabs(pageData, pages);
 
   els.pageCanvas.innerHTML = "";
   els.pageCanvas.style.position = "relative";
@@ -665,7 +746,8 @@ function renderPublishedPage(pageData) {
   for (const d of decorations) {
     els.pageCanvas.appendChild(renderDecoration(d));
   }
-}function wireClaimServerButton(serverData, currentUser) {
+}
+function wireClaimServerButton(serverData, currentUser) {
   if (!els.claimServerCard || !els.claimServerBtn || !els.claimServerMsg) return;
 
   const isSeeded =
