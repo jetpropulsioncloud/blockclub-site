@@ -942,32 +942,3 @@ body.preview .block-rot {
   box-shadow: 0 0 24px rgba(245, 158, 11, 0.24);
 }
 
-body[data-premium-tier="creator"] .canvas {
-  border-color: rgba(34, 197, 94, 0.55);
-  box-shadow:
-    var(--shadow),
-    0 0 0 3px rgba(34, 197, 94, 0.12);
-}
-
-body[data-premium-tier="boost"] .canvas {
-  border-color: rgba(16, 185, 129, 0.7);
-  box-shadow:
-    var(--shadow),
-    0 0 0 3px rgba(16, 185, 129, 0.16),
-    0 18px 55px rgba(16, 185, 129, 0.14);
-}
-
-body[data-premium-tier="realm"] .stage {
-  border-radius: 22px;
-  outline: 2px solid rgba(245, 158, 11, 0.28);
-  outline-offset: 8px;
-}
-
-body[data-premium-tier="realm"] .canvas {
-  border-color: rgba(34, 197, 94, 0.85);
-  box-shadow:
-    var(--shadow),
-    0 0 0 3px rgba(34, 197, 94, 0.18),
-    0 0 0 7px rgba(245, 158, 11, 0.10),
-    0 22px 70px rgba(16, 185, 129, 0.20);
-}

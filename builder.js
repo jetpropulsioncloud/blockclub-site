@@ -2209,10 +2209,6 @@ async function loadState() {
 
       if (nameEl) nameEl.value = serverData.name || "";
       if (ipEl) ipEl.value = serverData.ip || "";
-      updateBuilderPremiumVisuals({
-        premiumTier: "free",
-        premiumStatus: "inactive"
-      });
       lockIpField(true);
 
       const draftData = await loadDraftPage(routedServerId);
