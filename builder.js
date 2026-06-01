@@ -97,6 +97,8 @@ const builderPremiumBadge = document.getElementById("builderPremiumBadge");
 const textBoxCount = document.getElementById("textBoxCount");
 const imageBoxCount = document.getElementById("imageBoxCount");
 const emojiCount = document.getElementById("emojiCount");
+const builderPageList = document.getElementById("builderPageList");
+const addBuilderPageBtn = document.getElementById("addBuilderPageBtn");
 const PREMIUM_VISUALS = {
   free: {
     label: "Free Builder",
@@ -467,6 +469,15 @@ function clearStateObject() {
   };
   state.blocks = [];
   state.decorations = [];
+  state.pages = [
+    {
+      id: "home",
+      title: "Home",
+      blocks: [],
+      decorations: []
+    }
+  ];
+  state.activePageId = "home";
   state.selectedDecoId = null;
   state.selectedBlockId = null;
 }
@@ -540,6 +551,8 @@ const state = {
   },
   blocks: [],
   decorations: [],
+  pages: [],
+  activePageId: "home",
   selectedDecoId: null,
   selectedBlockId: null
 };
@@ -616,6 +629,175 @@ function clearBackgroundStyles(el) {
   el.style.backgroundRepeat = "";
   el.style.backgroundColor = "";
 }
+function escapeBuilderHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function createDefaultPage(title = "Home") {
+  return {
+    id: title === "Home" ? "home" : uid("page"),
+    title,
+    blocks: [],
+    decorations: []
+  };
+}
+
+function ensureBuilderPages() {
+  if (!Array.isArray(state.pages) || state.pages.length === 0) {
+    state.pages = [
+      {
+        id: "home",
+        title: "Home",
+        blocks: Array.isArray(state.blocks) ? state.blocks : [],
+        decorations: Array.isArray(state.decorations) ? state.decorations : []
+      }
+    ];
+  }
+
+  if (!state.activePageId || !state.pages.some((page) => page.id === state.activePageId)) {
+    state.activePageId = state.pages[0]?.id || "home";
+  }
+}
+
+function getActiveBuilderPage() {
+  ensureBuilderPages();
+
+  return (
+    state.pages.find((page) => page.id === state.activePageId) ||
+    state.pages[0]
+  );
+}
+
+function syncActivePageFromCanvas() {
+  ensureBuilderPages();
+
+  const activePage = getActiveBuilderPage();
+  activePage.blocks = state.blocks;
+  activePage.decorations = state.decorations;
+}
+
+function loadActivePageIntoCanvas() {
+  const activePage = getActiveBuilderPage();
+
+  state.blocks = Array.isArray(activePage.blocks) ? activePage.blocks : [];
+  state.decorations = Array.isArray(activePage.decorations) ? activePage.decorations : [];
+  state.selectedBlockId = null;
+  state.selectedDecoId = null;
+}
+
+function renameBuilderPage(pageId) {
+  ensureBuilderPages();
+
+  const page = state.pages.find((p) => p.id === pageId);
+  if (!page) return;
+
+  const nextTitle = prompt("Page name?", page.title || "Page");
+  if (!nextTitle) return;
+
+  page.title = nextTitle.trim() || page.title || "Page";
+
+  renderBuilderPages();
+  saveState();
+}
+
+function renderBuilderPages() {
+  if (!builderPageList) return;
+
+  ensureBuilderPages();
+
+  builderPageList.innerHTML = state.pages
+    .map((page) => {
+      const isActive = page.id === state.activePageId;
+      const blockCount = Array.isArray(page.blocks) ? page.blocks.length : 0;
+      const decoCount = Array.isArray(page.decorations) ? page.decorations.length : 0;
+
+      return `
+        <div class="builder-page-row ${isActive ? "active" : ""}">
+          <button
+            class="builder-page-btn"
+            type="button"
+            data-page-id="${escapeBuilderHtml(page.id)}"
+          >
+            <span>${escapeBuilderHtml(page.title || "Page")}</span>
+            <small>${blockCount} blocks • ${decoCount} emojis</small>
+          </button>
+
+          <button
+            class="builder-page-rename"
+            type="button"
+            data-rename-page-id="${escapeBuilderHtml(page.id)}"
+            title="Rename page"
+          >
+            ✎
+          </button>
+        </div>
+      `;
+    })
+    .join("");
+
+  builderPageList.querySelectorAll("[data-page-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const nextPageId = btn.getAttribute("data-page-id");
+
+      if (!nextPageId || nextPageId === state.activePageId) {
+        return;
+      }
+
+      syncActivePageFromCanvas();
+      state.activePageId = nextPageId;
+      loadActivePageIntoCanvas();
+
+      renderAll();
+      saveState();
+    });
+  });
+
+  builderPageList.querySelectorAll("[data-rename-page-id]").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const pageId = btn.getAttribute("data-rename-page-id");
+      if (!pageId) return;
+
+      renameBuilderPage(pageId);
+    });
+  });
+}
+
+function addBuilderPage() {
+  syncActivePageFromCanvas();
+
+  const limits = getPremiumLimits();
+
+  ensureBuilderPages();
+
+  if (state.pages.length >= limits.maxPages) {
+    alert(`${limits.label} allows up to ${limits.maxPages} page${limits.maxPages === 1 ? "" : "s"}.`);
+    return;
+  }
+
+  const pageNumber = state.pages.length + 1;
+  const title = prompt("Page name?", `Page ${pageNumber}`);
+
+  if (!title) return;
+
+  const page = createDefaultPage(title.trim() || `Page ${pageNumber}`);
+
+  state.pages.push(page);
+  state.activePageId = page.id;
+
+  loadActivePageIntoCanvas();
+  renderAll();
+  saveState();
+}
+
+addBuilderPageBtn?.addEventListener("click", addBuilderPage);
 
 function applyBackgroundStyles(el, bg, overlay = "rgba(255,255,255,0.18)") {
   if (!el || !bg) return;
@@ -734,6 +916,9 @@ function gridToPx(x, y, w, h) {
 }
 
 function renderAll() {
+  ensureBuilderPages();
+  syncActivePageFromCanvas();
+
   blocksLayer.innerHTML = "";
   decoLayer.innerHTML = "";
 
@@ -741,9 +926,12 @@ function renderAll() {
     if (b.type === "banner" || b.type === "vote") continue;
     renderBlock(b);
   }
+
   for (const d of state.decorations) renderDeco(d);
+
   renderServerIcon();
   updateBuilderCounters();
+  renderBuilderPages();
 }
 
 function makeBlockShell(b) {
@@ -1843,6 +2031,7 @@ function addTextBlock() {
   };
   state.blocks.push(b);
   renderAll();
+  saveState();v
 }
 
 function addImageBlock() {
@@ -1865,6 +2054,7 @@ function addImageBlock() {
   };
   state.blocks.push(b);
   renderAll();
+  saveState();
 }
 
 function addEmojiDeco() {
@@ -1960,8 +2150,8 @@ async function loadServerPageFromFirebase(serverId) {
       ? pageData.meta.tags
       : (Array.isArray(serverData.tags) ? serverData.tags : []),
     theme: normalizeTheme(pageData?.meta?.theme || serverData.theme || "emerald"),
-    iconUrl: String(draftData?.meta?.iconUrl || serverData?.iconUrl || "").trim(),
-    iconStoragePath: String(draftData?.meta?.iconStoragePath || serverData?.iconStoragePath || "").trim(),
+    iconUrl: String(pageData?.meta?.iconUrl || serverData?.iconUrl || "").trim(),
+    iconStoragePath: String(pageData?.meta?.iconStoragePath || serverData?.iconStoragePath || "").trim(),
     canvasBackgroundUrl: String(pageData?.meta?.canvasBackgroundUrl || "").trim(),
     canvasBackgroundStoragePath: "",
     shellBackgroundUrl: String(pageData?.meta?.shellBackgroundUrl || "").trim(),
