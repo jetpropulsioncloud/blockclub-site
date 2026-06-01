@@ -592,6 +592,19 @@ function pxToGrid(xPx, yPx) {
   };
 }
 function makeDraftSafeState() {
+  syncActivePageFromCanvas();
+
+  const safePages = (state.pages || []).map((page, index) => ({
+    id: String(page.id || (index === 0 ? "home" : uid("page"))),
+    title: String(page.title || (index === 0 ? "Home" : `Page ${index + 1}`)),
+    blocks: (page.blocks || []).map((b) => {
+      const copy = { ...b };
+      delete copy.dataUrl;
+      return copy;
+    }),
+    decorations: (page.decorations || []).map((d) => ({ ...d }))
+  }));
+
   return {
     meta: {
       description: String(state.meta?.description || "").trim(),
@@ -612,7 +625,9 @@ function makeDraftSafeState() {
       delete copy.dataUrl;
       return copy;
     }),
-    decorations: (state.decorations || []).map((d) => ({ ...d }))
+    decorations: (state.decorations || []).map((d) => ({ ...d })),
+    pages: safePages,
+    activePageId: state.activePageId || "home"
   };
 }
 let draftSaveTimer = null;
@@ -646,7 +661,27 @@ function createDefaultPage(title = "Home") {
     decorations: []
   };
 }
+function normalizeBuilderPages(data = {}) {
+  const rawPages = Array.isArray(data.pages) ? data.pages : [];
 
+  if (rawPages.length) {
+    return rawPages.map((page, index) => ({
+      id: String(page.id || (index === 0 ? "home" : uid("page"))),
+      title: String(page.title || (index === 0 ? "Home" : `Page ${index + 1}`)),
+      blocks: Array.isArray(page.blocks) ? page.blocks : [],
+      decorations: Array.isArray(page.decorations) ? page.decorations : []
+    }));
+  }
+
+  return [
+    {
+      id: "home",
+      title: "Home",
+      blocks: Array.isArray(data.blocks) ? data.blocks : [],
+      decorations: Array.isArray(data.decorations) ? data.decorations : []
+    }
+  ];
+}
 function ensureBuilderPages() {
   if (!Array.isArray(state.pages) || state.pages.length === 0) {
     state.pages = [
@@ -2363,10 +2398,12 @@ async function saveDraftPage(serverId) {
     {
       serverId,
       ownerUid: ownership.user.uid,
-      version: 1,
+      version: 2,
       meta: safeState.meta,
       blocks: safeState.blocks,
       decorations: safeState.decorations,
+      pages: safeState.pages,
+      activePageId: safeState.activePageId,
       updatedAt: serverTimestamp()
     },
     { merge: true }
@@ -2450,8 +2487,9 @@ async function loadState() {
         syncCustomThemeControls();
         applyCanvasBackground();
 
-        state.blocks = Array.isArray(draftData.blocks) ? draftData.blocks : [];
-        state.decorations = Array.isArray(draftData.decorations) ? draftData.decorations : [];
+        state.pages = normalizeBuilderPages(draftData);
+        state.activePageId = draftData.activePageId || state.pages[0]?.id || "home";
+        loadActivePageIntoCanvas();
 
         if (serverDescriptionInput) {
           setRichEditorHtml(
