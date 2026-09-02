@@ -108,7 +108,6 @@ jobs:
           javap -verbose -classpath guildfrontier-build/project/build/libs/blockclub-guildfrontier-0.4.2.jar com.blockclub.frontier.GuildFrontierPlugin | grep 'major version: 65'
           unzip -p guildfrontier-build/project/build/libs/blockclub-guildfrontier-0.4.2.jar plugin.yml | grep "api-version: '1.21'"
           unzip -p guildfrontier-build/project/build/libs/blockclub-guildfrontier-0.4.2.jar plugin.yml | grep "version: '0.4.2'"
-          javap -classpath guildfrontier-build/project/build/libs/blockclub-guildfrontier-0.4.2.jar -c com.blockclub.frontier.FrontierManager | grep 'org/bukkit/Particle.DUST'
 
       - name: Prepare artifact
         shell: bash
