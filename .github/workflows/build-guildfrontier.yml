@@ -66,49 +66,37 @@ jobs:
           fm = root / 'src/main/java/com/blockclub/frontier/FrontierManager.java'
           s = fm.read_text()
           s = s.replace('import org.bukkit.Bukkit;\n', 'import org.bukkit.Bukkit;\nimport org.bukkit.Color;\n')
-          old = '''        player.sendActionBar(Component.text(nearest.guild().displayName() + " boundary • "
-                  + Math.max(0, Math.round(nearestGap)) + " blocks • "
-                  + (inside ? "SAFE" : "PVP FRONTIER")));
-
-          int points = Math.max(3, Math.min(20, plugin.getConfig().getInt("boundary.particle-points", 9)));
-          double arcDegrees = Math.max(10.0, Math.min(100.0, plugin.getConfig().getDouble("boundary.arc-degrees", 42.0)));
-          double centerAngle = Math.atan2(location.getZ() - nearest.centerZ(), location.getX() - nearest.centerX());
-          double halfArc = Math.toRadians(arcDegrees) / 2.0;
-          double y = location.getY() + 0.35;
-          for (int i = 0; i < points; i++) {
-              double t = points == 1 ? 0.5 : i / (double) (points - 1);
-              double angle = centerAngle - halfArc + (t * halfArc * 2.0);
-              double x = nearest.centerX() + Math.cos(angle) * nearest.radius();
-              double z = nearest.centerZ() + Math.sin(angle) * nearest.radius();
-              player.spawnParticle(Particle.END_ROD, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
-          }'''
+          start_marker = '        player.sendActionBar(Component.text(nearest.guild().displayName() + " boundary • "'
+          end_marker = '\n    }\n\n    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)\n    public void onTeleport'
+          start = s.find(start_marker)
+          end = s.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('Boundary markers not found')
           new = '''        String boundaryState = inside ? "SAFE SIDE" : "PVP FRONTIER";
-          player.sendActionBar(Component.text("⚠ " + nearest.guild().displayName() + " BORDER • "
-                  + Math.max(0, Math.round(nearestGap)) + " blocks • " + boundaryState));
+              player.sendActionBar(Component.text("⚠ " + nearest.guild().displayName() + " BORDER • "
+                      + Math.max(0, Math.round(nearestGap)) + " blocks • " + boundaryState));
 
-          int points = Math.max(3, Math.min(24, plugin.getConfig().getInt("boundary.particle-points", 11)));
-          int layers = Math.max(1, Math.min(5, plugin.getConfig().getInt("boundary.vertical-layers", 3)));
-          double layerSpacing = Math.max(0.25, Math.min(1.5, plugin.getConfig().getDouble("boundary.layer-spacing", 0.7)));
-          float particleSize = (float) Math.max(0.5, Math.min(4.0, plugin.getConfig().getDouble("boundary.particle-size", 1.5)));
-          double arcDegrees = Math.max(10.0, Math.min(120.0, plugin.getConfig().getDouble("boundary.arc-degrees", 50.0)));
-          double centerAngle = Math.atan2(location.getZ() - nearest.centerZ(), location.getX() - nearest.centerX());
-          double halfArc = Math.toRadians(arcDegrees) / 2.0;
-          double baseY = location.getY() + 0.15;
-          Particle.DustOptions redDust = new Particle.DustOptions(Color.fromRGB(220, 20, 20), particleSize);
+              int points = Math.max(3, Math.min(24, plugin.getConfig().getInt("boundary.particle-points", 11)));
+              int layers = Math.max(1, Math.min(5, plugin.getConfig().getInt("boundary.vertical-layers", 3)));
+              double layerSpacing = Math.max(0.25, Math.min(1.5, plugin.getConfig().getDouble("boundary.layer-spacing", 0.7)));
+              float particleSize = (float) Math.max(0.5, Math.min(4.0, plugin.getConfig().getDouble("boundary.particle-size", 1.5)));
+              double arcDegrees = Math.max(10.0, Math.min(120.0, plugin.getConfig().getDouble("boundary.arc-degrees", 50.0)));
+              double centerAngle = Math.atan2(location.getZ() - nearest.centerZ(), location.getX() - nearest.centerX());
+              double halfArc = Math.toRadians(arcDegrees) / 2.0;
+              double baseY = location.getY() + 0.15;
+              Particle.DustOptions redDust = new Particle.DustOptions(Color.fromRGB(220, 20, 20), particleSize);
 
-          for (int i = 0; i < points; i++) {
-              double t = points == 1 ? 0.5 : i / (double) (points - 1);
-              double angle = centerAngle - halfArc + (t * halfArc * 2.0);
-              double x = nearest.centerX() + Math.cos(angle) * nearest.radius();
-              double z = nearest.centerZ() + Math.sin(angle) * nearest.radius();
-              for (int layer = 0; layer < layers; layer++) {
-                  double y = baseY + (layer * layerSpacing);
-                  player.spawnParticle(Particle.DUST, x, y, z, 1, 0.0, 0.0, 0.0, 0.0, redDust);
-              }
-          }'''
-          if old not in s:
-              raise SystemExit('Expected boundary block not found')
-          fm.write_text(s.replace(old, new))
+              for (int i = 0; i < points; i++) {
+                  double t = points == 1 ? 0.5 : i / (double) (points - 1);
+                  double angle = centerAngle - halfArc + (t * halfArc * 2.0);
+                  double x = nearest.centerX() + Math.cos(angle) * nearest.radius();
+                  double z = nearest.centerZ() + Math.sin(angle) * nearest.radius();
+                  for (int layer = 0; layer < layers; layer++) {
+                      double y = baseY + (layer * layerSpacing);
+                      player.spawnParticle(Particle.DUST, x, y, z, 1, 0.0, 0.0, 0.0, 0.0, redDust);
+                  }
+              }'''
+          fm.write_text(s[:start] + new + s[end:])
           PY
 
       - name: Build plugin
