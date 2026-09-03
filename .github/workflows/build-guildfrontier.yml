@@ -34,7 +34,15 @@ jobs:
         run: |
           rm -rf guildfrontier-build/project
           mkdir -p guildfrontier-build/project
-          cat guildfrontier-build/v044/src.part* > /tmp/guildfrontier-v044.zip.b64
+          cat \
+            guildfrontier-build/v044/src.part00a \
+            guildfrontier-build/v044/src.part00b \
+            guildfrontier-build/v044/src.part01 \
+            guildfrontier-build/v044/src.part02 \
+            guildfrontier-build/v044/src.part03 \
+            guildfrontier-build/v044/src.part04 \
+            guildfrontier-build/v044/src.part05 \
+            > /tmp/guildfrontier-v044.zip.b64
           base64 -d /tmp/guildfrontier-v044.zip.b64 > /tmp/guildfrontier-v044.zip
           unzip -t /tmp/guildfrontier-v044.zip
           unzip -q /tmp/guildfrontier-v044.zip -d guildfrontier-build/project
