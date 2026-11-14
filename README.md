@@ -28,7 +28,7 @@ The test environment uses:
 
 - `demo-blockclub-e2e`, a non-deployable Firebase **demo** project ID.
 - `.firebase-e2e.json` to start local Auth (9099), Firestore (8080), Storage (9199), and Hosting (5000) emulators.
-- `tests/firebase/*.e2e.rules`, **permissive test fixtures only**, not the real authorization rules. **Never deploy these rules to production.**
+- `firestore.rules` and `storage.rules` as review candidates under automated test, not verified live rules. The older `tests/firebase/*.e2e.rules` are NOT used by browser tests and must never be deployed.
 - A browser interceptor that replaces requests to the production Minecraft status Cloud Function with an offline test response; no production status requests are sent.
 
 To run locally, use a **disposable clone** of the repository with Node.js 22, Java 21, and Chromium prerequisites:
@@ -39,7 +39,7 @@ npx playwright install chromium
 npx firebase emulators:exec --project demo-blockclub-e2e --config .firebase-e2e.json --only auth,firestore,storage,hosting "node tests/browser-e2e.cjs"
 ```
 
-The GitHub Actions browser workflow runs this test on pull requests and uses Ubuntu 24.04. It clears the accidentally tracked `node_modules` directory **only inside its disposable runner** before doing a fresh install. Do not delete a developer's working dependencies casually.
+The GitHub Actions browser workflow runs this test on pull requests and uses Ubuntu 24.04. Its security checks exercise owner-versus-nonowner reads/writes, denied billing and premium changes, owner-only private settings and Storage paths, and transactional upvotes. It clears the accidentally tracked `node_modules` directory **only inside its disposable runner** before doing a fresh install. Do not delete a developer's working dependencies casually.
 
 ## Release safety
 
@@ -53,3 +53,9 @@ Before merging and deploying a release:
 4. Check the site's external service configuration and payment/voting endpoints separately.
 
 **Known limitations:** The repository does not contain checked-in production Firestore/Storage rules. Billing, server-side voting authorization, and transactionality across published server data and assets require later security/data-integrity phases. Passing the emulator, syntax and unit checks is not certification for paid production use.
+
+## Candidate Firebase rules — deployment safety
+
+The proposed `firestore.rules` and `storage.rules` are intentionally **not** added to `firebase.json`, so the existing hosting/functions deployment configuration cannot accidentally publish them. They must first be compared with the active production rules for project `blockclub-4742a`, verified with representative existing documents and staging, and approved as a separate release step. Never replace live rules with permissive test fixture files.
+
+**Known migration risks:** existing public `servers` documents may include PayPal subscription identifiers or owner email addresses; security rules cannot hide individual fields within a readable document. Username-to-email login exposes email through public username lookups. Anonymous client-side view increments are not rate limited. Published IP uniqueness is not server-enforced. The PayPal plan mismatch and webhook processing still require fixes before paid activation is enabled.
