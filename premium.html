@@ -885,22 +885,9 @@
               return;
             }
 
-            const isFeaturedTier = tier === "boost" || tier === "realm";
-
-            await setDoc(doc(db, "servers", activeServerId), {
-              premiumTier: tier,
-              premiumStatus: "active",
-              premiumSubscriptionId: data.subscriptionID || "",
-              premiumOwnerUid: currentUser.uid,
-              premiumUpdatedAt: serverTimestamp(),
-
-              isPremium: true,
-              isFeatured: isFeaturedTier,
-              featured: isFeaturedTier,
-              featuredRank: tier === "realm" ? 1 : tier === "boost" ? 10 : 999
-            }, { merge: true });
-
-            setCheckoutMessage(`Success! Your server is now on the ${tier} plan.`);
+            // The PayPal webhook must verify and activate the subscription.
+            // Never trust browser-side approval as proof of an active paid tier.
+            setCheckoutMessage("PayPal approved your checkout. Activation is pending verified payment processing; please check back shortly or contact support if it does not appear.");
           },
 
           onError(error) {
