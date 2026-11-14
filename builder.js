@@ -2601,7 +2601,23 @@ function syncStagePreview() {
       .join("");
   }
 }
+let builderReady = false;
+function markBuilderReady() {
+  builderReady = true;
+  document.body.dataset.builderReady = "true";
+  document.querySelector(".builder-shell")?.removeAttribute("inert");
+
+  const nameEl = document.getElementById("serverNameInput");
+  if (nameEl) nameEl.disabled = false;
+  lockIpField(Boolean(serverIdFromUrl));
+
+  for (const button of [publishBtn, previewBtn, resetBtn, exportBtn]) {
+    if (button) button.disabled = false;
+  }
+}
 async function loadState() {
+  builderReady = false;
+  document.body.dataset.builderReady = "false";
   const routedServerId = serverIdFromUrl;
 
   if (routedServerId) {
@@ -2665,6 +2681,7 @@ async function loadState() {
         syncCustomThemeControls();
         applyCanvasBackground();
         renderAll();
+        markBuilderReady();
         return;
       }
 
@@ -2672,11 +2689,13 @@ async function loadState() {
       if (loadedPublished) {
         console.log(`Loaded published page for server ${routedServerId}`);
         renderAll();
+        markBuilderReady();
         return;
       }
 
       clearStateObject();
       renderAll();
+      markBuilderReady();
       return;
     } catch (err) {
       console.error("Routed builder access denied:", err);
@@ -2701,6 +2720,7 @@ async function loadState() {
   syncStagePreview();
   renderTagDropdown();
   renderAll();
+  markBuilderReady();
 }
 
 function resetState() {
@@ -2844,7 +2864,7 @@ previewBtn.addEventListener("click", () => {
 });
 let publishInProgress = false;
 publishBtn.addEventListener("click", async () => {
-  if (publishInProgress) return;
+  if (!builderReady || publishInProgress) return;
   publishInProgress = true;
   publishBtn.disabled = true;
 
@@ -2867,7 +2887,7 @@ publishBtn.addEventListener("click", async () => {
     alert(String(err?.message || err));
   } finally {
     publishInProgress = false;
-    publishBtn.disabled = false;
+    publishBtn.disabled = !builderReady;
   }
 });
 document.getElementById("serverNameInput")?.addEventListener("input", syncStagePreview);
