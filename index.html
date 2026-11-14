@@ -1390,9 +1390,6 @@
         const data = userSnap.exists() ? userSnap.data() : null;
         const label = data?.username ? `@${data.username}` : user.email;
 
-        if (requestId !== ownerStateRequestId) return;
-        setAuthUI(user, label);
-
         const ownedServersQuery = query(
           collection(db, "servers"),
           where("ownerUid", "==", user.uid),
@@ -1403,16 +1400,19 @@
         const ownedServerId = ownedServersSnap.empty ? null : ownedServersSnap.docs[0].id;
 
         if (requestId !== ownerStateRequestId) return;
+        setAuthUI(user, label);
         setServerOwnerActions({
           user,
           serverId: ownedServerId
         });
       }
       onAuthStateChanged(auth, async (user) => {
+        const requestId = ownerStateRequestId + 1;
         try {
           await resolveHomepageOwnerState(user);
         } catch (err) {
           console.error("homepage auth sync failed:", err);
+          if (requestId !== ownerStateRequestId) return;
           setAuthUI(user, user?.email || "");
           setServerOwnerActions({ user, serverId: null });
         }
@@ -1423,10 +1423,12 @@
 
         console.log("index.html pageshow -> page restored from cache, re-syncing auth UI");
 
+        const requestId = ownerStateRequestId + 1;
         try {
           await resolveHomepageOwnerState(auth.currentUser);
         } catch (err) {
           console.error("pageshow auth sync failed:", err);
+          if (requestId !== ownerStateRequestId) return;
           setAuthUI(auth.currentUser, auth.currentUser?.email || "");
           setServerOwnerActions({ user: auth.currentUser, serverId: null });
         }
