@@ -161,6 +161,7 @@ test("two rapid publish clicks execute only one publication and restore the butt
   };
   const context = {
     publishBtn: button,
+    builderReady: true,
     buildPublishPayload: () => ({ pages: [] }),
     publishToFirebase: async () => {
       publishCalls++;
@@ -194,6 +195,7 @@ test("failed publish unlocks the button so the user can retry", async () => {
   };
   const context = {
     publishBtn: button,
+    builderReady: true,
     buildPublishPayload: () => ({ pages: [] }),
     publishToFirebase: async () => { throw new Error("test failure"); },
     exportArea: { value: "" },
@@ -205,4 +207,27 @@ test("failed publish unlocks the button so the user can retry", async () => {
   await onClick();
   assert.equal(button.disabled, false);
   assert.equal(alerts, 1);
+});
+
+test("Publish action remains blocked until the builder finishes loading", async () => {
+  let onClick;
+  let calls = 0;
+  const button = {
+    disabled: true,
+    addEventListener: (_name, handler) => { onClick = handler; },
+  };
+  const context = {
+    publishBtn: button,
+    builderReady: false,
+    buildPublishPayload: () => { calls++; return {}; },
+    publishToFirebase: async () => { calls++; return null; },
+    exportArea: { value: "" },
+    exportDialog: { showModal: () => {} },
+    alert: () => {},
+    console: { error: () => {} },
+  };
+  vm.runInNewContext(clickSource, context);
+  await onClick();
+  assert.equal(calls, 0);
+  assert.equal(button.disabled, true);
 });
