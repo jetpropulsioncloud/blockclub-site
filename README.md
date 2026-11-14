@@ -18,12 +18,38 @@ npm run check:syntax
 npm test
 ```
 
-The syntax checker validates first-party JavaScript and JavaScript embedded in HTML. The tests cover first publication, re-publishing without duplicate listings, ownership denial, rapid-click prevention, and failure recovery. They use mocked Firebase services and do **not** make network requests or write production data.
+The syntax checker validates first-party JavaScript and inline scripts. The Node regression suite covers first publication, repeat publication without duplicate listings, owner checks, double-click prevention, failure recovery, blocked publishing during initial loading, and Add Text initialization. These tests use mocked Firebase services and make no production requests.
 
-GitHub Actions runs both commands on pull requests and selected pushes. Keep changes on a feature branch and review the check results before merging.
+## Isolated browser integration tests
 
-## Deployment and release safety
+The repository includes a Playwright + Firebase Emulator Suite smoke test that follows the real website's sign-up → publish → re-publish → reload/edit → icon upload → public server page → logout/login workflow.
 
-The default branch is the canonical source. Do not assume merging a pull request deploys a verified release. Test the complete sign-in → create → edit → publish → view workflow against an appropriate Firebase test project before production deployment. Back up relevant Firestore data and verify security rules before making changes to persistence or payments.
+The test environment uses:
 
-**Known limitations:** The repository does not currently include checked-in Firestore/Storage rules or a full end-to-end Firebase integration test. Paid checkout and voting authorization require separate security work. Passing syntax and mocked tests alone does not certify production readiness.
+- `demo-blockclub-e2e`, a non-deployable Firebase **demo** project ID.
+- `.firebase-e2e.json` to start local Auth (9099), Firestore (8080), Storage (9199), and Hosting (5000) emulators.
+- `tests/firebase/*.e2e.rules`, **permissive test fixtures only**, not the real authorization rules. **Never deploy these rules to production.**
+- A browser interceptor that replaces requests to the production Minecraft status Cloud Function with an offline test response; no production status requests are sent.
+
+To run locally, use a **disposable clone** of the repository with Node.js 22, Java 21, and Chromium prerequisites:
+
+```sh
+npm install --no-save --package-lock=false playwright@1.58.2 firebase-tools@14.26.0
+npx playwright install chromium
+npx firebase emulators:exec --project demo-blockclub-e2e --config .firebase-e2e.json --only auth,firestore,storage,hosting "node tests/browser-e2e.cjs"
+```
+
+The GitHub Actions browser workflow runs this test on pull requests and uses Ubuntu 24.04. It clears the accidentally tracked `node_modules` directory **only inside its disposable runner** before doing a fresh install. Do not delete a developer's working dependencies casually.
+
+## Release safety
+
+The default branch remains the canonical production source. This repo currently has no verified staging environment that mirrors production security rules. The emulator smoke test verifies browser interactions with the isolated test rules, **not production authorization**.
+
+Before merging and deploying a release:
+
+1. Review the actual deployed Firestore and Storage rules, then test owner and non-owner permissions against a faithful staging copy of those rules.
+2. Verify image upload, storage deletion, and publish/edit/preview using an isolated Firebase staging project.
+3. Back up relevant Firestore and Storage data and confirm a working rollback procedure.
+4. Check the site's external service configuration and payment/voting endpoints separately.
+
+**Known limitations:** The repository does not contain checked-in production Firestore/Storage rules. Billing, server-side voting authorization, and transactionality across published server data and assets require later security/data-integrity phases. Passing the emulator, syntax and unit checks is not certification for paid production use.
