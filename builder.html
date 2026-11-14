@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="builder.css" />
   </head>
 
-  <body data-theme="royal">
+  <body data-theme="royal" data-builder-ready="false">
     <div class="topbar">
       <div class="wrap topbar-inner">
         <div class="brand">
@@ -21,8 +21,8 @@
           <div class="hr"></div>
           <div class="panel-title">Server info</div>
           <div class="stack">
-            <input id="serverNameInput" class="control" placeholder="Server name" />
-            <input id="serverIpInput" class="control" placeholder="Server IP" />
+            <input id="serverNameInput" class="control" placeholder="Server name" disabled />
+            <input id="serverIpInput" class="control" placeholder="Server IP" disabled />
           </div>
           <div class="muted" style="margin-left: 10px; font-weight: 800;">Server Page Builder</div>
           <div id="builderPremiumBadge" class="builder-premium-badge is-free">
@@ -32,15 +32,15 @@
 
         <div class="top-actions">
           <button id="homeBtn" class="btn small ghost">← Home</button>
-          <button class="btn small ghost" id="toggleDeco" type="button">Edit decorations: Off</button>
-          <button class="btn small" id="previewBtn" type="button">Preview</button>
-          <button class="btn small" id="exportBtn" type="button">Export JSON</button>
-          <button class="btn small primary" id="resetBtn" type="button">Reset</button>
+          <button class="btn small ghost" id="toggleDeco" type="button" disabled>Edit decorations: Off</button>
+          <button class="btn small" id="previewBtn" type="button" disabled>Preview</button>
+          <button class="btn small" id="exportBtn" type="button" disabled>Export JSON</button>
+          <button class="btn small primary" id="resetBtn" type="button" disabled>Reset</button>
         </div>
       </div>
     </div>
 
-    <main class="wrap builder-shell">
+    <main class="wrap builder-shell" inert>
       <aside class="side side-left">
         <div class="panel">
           <div class="panel-title">Server Info</div>
@@ -155,7 +155,7 @@
             </button>
           </div>
           <div class="hr"></div>
-          <button class="btn primary" id="publishBtn" type="button">Publish</button>
+          <button class="btn primary" id="publishBtn" type="button" disabled>Publish</button>
 
           <div class="hr"></div>
           <div class="panel-title">Tips</div>
