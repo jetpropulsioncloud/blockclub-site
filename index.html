@@ -1198,6 +1198,7 @@
       const elLogout = document.getElementById("btnLogout");
 
       let mode = "login";
+      let ownerStateRequestId = 0;
 
       function openModal() {
         elModal.style.display = "block";
@@ -1304,6 +1305,11 @@
           const username = prompt("Pick a username (letters/numbers/_ only).") || "";
           await register(email, password, username);
           await resolveHomepageOwnerState(auth.currentUser);
+          // Registration has just committed this username to Firestore. Display it
+          // immediately rather than relying on an overlapping auth-state callback.
+          if (auth.currentUser) {
+            setAuthUI(auth.currentUser, `@${username.trim().toLowerCase()}`);
+          }
           closeModal();
         } catch (e) {
           elMsg.textContent = e?.message || "Something went wrong.";
@@ -1377,6 +1383,7 @@
       }
 
       async function resolveHomepageOwnerState(user) {
+        const requestId = ++ownerStateRequestId;
         if (!user) {
           setAuthUI(null);
           setServerOwnerActions();
@@ -1388,8 +1395,6 @@
         const data = userSnap.exists() ? userSnap.data() : null;
         const label = data?.username ? `@${data.username}` : user.email;
 
-        setAuthUI(user, label);
-
         const ownedServersQuery = query(
           collection(db, "servers"),
           where("ownerUid", "==", user.uid),
@@ -1399,16 +1404,20 @@
         const ownedServersSnap = await getDocs(ownedServersQuery);
         const ownedServerId = ownedServersSnap.empty ? null : ownedServersSnap.docs[0].id;
 
+        if (requestId !== ownerStateRequestId) return;
+        setAuthUI(user, label);
         setServerOwnerActions({
           user,
           serverId: ownedServerId
         });
       }
       onAuthStateChanged(auth, async (user) => {
+        const requestId = ownerStateRequestId + 1;
         try {
           await resolveHomepageOwnerState(user);
         } catch (err) {
           console.error("homepage auth sync failed:", err);
+          if (requestId !== ownerStateRequestId) return;
           setAuthUI(user, user?.email || "");
           setServerOwnerActions({ user, serverId: null });
         }
@@ -1419,10 +1428,12 @@
 
         console.log("index.html pageshow -> page restored from cache, re-syncing auth UI");
 
+        const requestId = ownerStateRequestId + 1;
         try {
           await resolveHomepageOwnerState(auth.currentUser);
         } catch (err) {
           console.error("pageshow auth sync failed:", err);
+          if (requestId !== ownerStateRequestId) return;
           setAuthUI(auth.currentUser, auth.currentUser?.email || "");
           setServerOwnerActions({ user: auth.currentUser, serverId: null });
         }

@@ -278,7 +278,7 @@ function applyPremiumUi() {
   }
 }
 const params = new URLSearchParams(window.location.search);
-const serverIdFromUrl = params.get("serverId");
+let serverIdFromUrl = params.get("serverId");
 const voteEnabledInput = document.getElementById("voteEnabledInput");
 const voteHostInput = document.getElementById("voteHostInput");
 const votePortInput = document.getElementById("votePortInput");
@@ -302,6 +302,7 @@ function getActiveServerId() {
 }
 function replaceUrlServerId(serverId) {
   if (!serverId) return;
+  serverIdFromUrl = serverId;
   const url = new URL(window.location.href);
   url.searchParams.set("serverId", serverId);
   window.history.replaceState({}, "", url.toString());
@@ -1416,12 +1417,9 @@ async function publishToFirebase(payload) {
   };
 
   const nextBlocks = homePage.blocks;
-  canvasBackgroundUrl = String(homePage.canvasBackgroundUrl || "").trim();
-  shellBackgroundUrl = String(homePage.shellBackgroundUrl || "").trim();
-  pageBackgroundUrl = String(homePage.pageBackgroundUrl || "").trim();
-  let canvasBackgroundUrl = "";
-  let shellBackgroundUrl = "";
-  let pageBackgroundUrl = "";
+  let canvasBackgroundUrl = String(homePage.canvasBackgroundUrl || "").trim();
+  let shellBackgroundUrl = String(homePage.shellBackgroundUrl || "").trim();
+  let pageBackgroundUrl = String(homePage.pageBackgroundUrl || "").trim();
   let iconUrl = String(state.meta?.iconUrl || "").trim();
   let iconStoragePath = String(state.meta?.iconStoragePath || "").trim();
   if (iconUrl.startsWith("data:")) {
@@ -2221,7 +2219,7 @@ function addTextBlock() {
   };
   state.blocks.push(b);
   renderAll();
-  saveState();v
+  saveState();
 }
 
 function addImageBlock() {
@@ -2603,7 +2601,23 @@ function syncStagePreview() {
       .join("");
   }
 }
+let builderReady = false;
+function markBuilderReady() {
+  builderReady = true;
+  document.body.dataset.builderReady = "true";
+  document.querySelector(".builder-shell")?.removeAttribute("inert");
+
+  const nameEl = document.getElementById("serverNameInput");
+  if (nameEl) nameEl.disabled = false;
+  lockIpField(Boolean(serverIdFromUrl));
+
+  for (const button of [publishBtn, previewBtn, resetBtn, exportBtn, toggleDecoBtn]) {
+    if (button) button.disabled = false;
+  }
+}
 async function loadState() {
+  builderReady = false;
+  document.body.dataset.builderReady = "false";
   const routedServerId = serverIdFromUrl;
 
   if (routedServerId) {
@@ -2667,6 +2681,7 @@ async function loadState() {
         syncCustomThemeControls();
         applyCanvasBackground();
         renderAll();
+        markBuilderReady();
         return;
       }
 
@@ -2674,11 +2689,13 @@ async function loadState() {
       if (loadedPublished) {
         console.log(`Loaded published page for server ${routedServerId}`);
         renderAll();
+        markBuilderReady();
         return;
       }
 
       clearStateObject();
       renderAll();
+      markBuilderReady();
       return;
     } catch (err) {
       console.error("Routed builder access denied:", err);
@@ -2703,6 +2720,7 @@ async function loadState() {
   syncStagePreview();
   renderTagDropdown();
   renderAll();
+  markBuilderReady();
 }
 
 function resetState() {
@@ -2844,10 +2862,14 @@ previewBtn.addEventListener("click", () => {
   setTimeout(sendPreviewState, 150);
   setTimeout(sendPreviewState, 500);
 });
+let publishInProgress = false;
 publishBtn.addEventListener("click", async () => {
-  const payload = buildPublishPayload();
+  if (!builderReady || publishInProgress) return;
+  publishInProgress = true;
+  publishBtn.disabled = true;
 
   try {
+    const payload = buildPublishPayload();
     const result = await publishToFirebase(payload);
     if (!result) return;
 
@@ -2863,6 +2885,9 @@ publishBtn.addEventListener("click", async () => {
     console.error("PUBLISH ERROR FULL:", err);
     console.error("PUBLISH ERROR STACK:", err?.stack);
     alert(String(err?.message || err));
+  } finally {
+    publishInProgress = false;
+    publishBtn.disabled = !builderReady;
   }
 });
 document.getElementById("serverNameInput")?.addEventListener("input", syncStagePreview);

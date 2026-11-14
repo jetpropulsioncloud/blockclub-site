@@ -1,0 +1,22 @@
+name: Phase 1 source checks
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript and HTML inline script syntax
+        run: npm run check:syntax
+      - name: Run publishing regression tests
+        run: npm test
