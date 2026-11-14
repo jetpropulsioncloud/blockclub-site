@@ -128,12 +128,14 @@ async function run() {
     assert.equal(docs[0].ownerUid, userId);
     assert.equal(docs[0].isPublished, true);
     assert.ok(await readPage(page, serverId), "Published page document must exist");
+    await page.locator("#closeExport").click();
     console.log("PASS: First publish writes real Firestore emulator documents");
 
     // Verify multiple same-session publishes update the same listing ID.
     await page.locator("#publishBtn").click();
     docs = await readServers(page);
     assert.equal(docs.length, 1, "Repeated publish must not create a duplicate listing");
+    await page.locator("#closeExport").click();
     console.log("PASS: Re-publish in the same session keeps one server listing");
 
     await page.reload({ waitUntil: "domcontentloaded" });
