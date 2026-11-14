@@ -1,0 +1,231 @@
+// REVIEW CANDIDATE — never deploy without comparing with the existing live rules.
+// Public server documents are readable in their entirety (including any legacy
+// billing/ownerEmail fields); those sensitive fields need a data migration.
+// Firebase Admin SDK Cloud Functions bypass these client security rules.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null && request.auth.uid is string;
+    }
+
+    function serverPath(serverId) {
+      return /databases/$(database)/documents/servers/$(serverId);
+    }
+
+    function votePath(serverId) {
+      return /databases/$(database)/documents/servers/$(serverId)/votes/$(request.auth.uid);
+    }
+
+    function ownsServer(serverId) {
+      return signedIn()
+        && exists(serverPath(serverId))
+        && get(serverPath(serverId)).data.ownerUid == request.auth.uid;
+    }
+
+    function canReadServer() {
+      return resource.data.get('isPublished', false) == true
+        || (signedIn() && resource.data.get('ownerUid', '') == request.auth.uid);
+    }
+
+    function createdServerFieldsValid() {
+      return signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 140
+        && request.resource.data.ip is string
+        && request.resource.data.ip.size() > 0
+        && request.resource.data.ip.size() <= 255
+        && request.resource.data.isPublished is bool
+        && request.resource.data.views == 0
+        && request.resource.data.upvotes == 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'name', 'ip', 'ipKey', 'mode', 'tags', 'bannerUrl',
+          'description', 'descriptionHtml', 'slug', 'status', 'players',
+          'iconUrl', 'iconStoragePath', 'theme', 'createdAt', 'updatedAt',
+          'pagePublishedAt', 'isPublished', 'views', 'upvotes'
+        ]);
+    }
+
+    function ownerEditableServerFields() {
+      return signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.ip == resource.data.ip
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'description', 'descriptionHtml', 'tags', 'theme',
+          'iconUrl', 'iconStoragePath', 'bannerUrl', 'mode', 'status',
+          'players', 'pagePublishedAt', 'updatedAt', 'isPublished',
+          'votingEnabled'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 140;
+    }
+
+    function viewCounterIncrementOnly() {
+      // Legacy public analytics path. This counter can still be spammed;
+      // a rate-limited backend endpoint is needed for trustworthy counts.
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])
+        && resource.data.get('views', 0) is int
+        && request.resource.data.views == resource.data.get('views', 0) + 1;
+    }
+
+    function upvoteCounterChange(serverId) {
+      return signedIn()
+        && resource.data.ownerUid != request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upvotes'])
+        && resource.data.get('upvotes', 0) is int
+        && (
+          (
+            request.resource.data.upvotes == resource.data.get('upvotes', 0) + 1
+            && !exists(votePath(serverId))
+            && existsAfter(votePath(serverId))
+            && getAfter(votePath(serverId)).data.uid == request.auth.uid
+          )
+          ||
+          (
+            request.resource.data.upvotes == resource.data.get('upvotes', 0) - 1
+            && resource.data.get('upvotes', 0) > 0
+            && exists(votePath(serverId))
+            && !existsAfter(votePath(serverId))
+          )
+        );
+    }
+
+    function voteMatchesServerCounter(serverId, delta) {
+      return signedIn()
+        && exists(serverPath(serverId))
+        && getAfter(serverPath(serverId)).data.upvotes ==
+           get(serverPath(serverId)).data.get('upvotes', 0) + delta;
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.username is string
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.keys().hasOnly(['email', 'username', 'createdAt'])
+        && getAfter(
+          /databases/$(database)/documents/usernames/$(request.resource.data.username)
+        ).data.uid == uid;
+      allow update, delete: if false;
+
+      match /billing/{billId} {
+        allow get, list: if signedIn() && request.auth.uid == uid;
+        allow write: if false;
+      }
+    }
+
+    match /usernames/{username} {
+      // Existing username-to-email login performs unauthenticated lookups.
+      // This deliberately preserves that behavior but exposes email addresses.
+      // Replace username login with a privacy-preserving identity flow later.
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'createdAt'])
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == username;
+      allow update, delete: if false;
+    }
+
+    match /servers/{serverId} {
+      allow get, list: if canReadServer();
+      allow create: if createdServerFieldsValid();
+      allow update: if ownerEditableServerFields()
+        || viewCounterIncrementOnly()
+        || upvoteCounterChange(serverId);
+      allow delete: if false; // Delete requires an audited server workflow.
+
+      match /pages/{pageId} {
+        allow get, list: if ownsServer(serverId)
+          || (get(serverPath(serverId)).data.get('isPublished', false) == true);
+        allow create, update: if ownsServer(serverId)
+          && pageId == 'main'
+          && request.resource.data.serverId == serverId
+          && request.resource.data.version == 2
+          && request.resource.data.pages is list;
+        allow delete: if false;
+      }
+
+      match /drafts/{draftId} {
+        allow get, list: if ownsServer(serverId);
+        allow create, update: if ownsServer(serverId)
+          && draftId == 'main'
+          && request.resource.data.serverId == serverId
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.version == 2;
+        allow delete: if false;
+      }
+
+      match /private/{docId} {
+        allow get, list: if ownsServer(serverId) && docId == 'config';
+        allow create, update: if ownsServer(serverId)
+          && docId == 'config'
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'ownerUid', 'votingEnabled', 'votifierHost', 'votifierPort',
+            'votifierToken', 'votifierServiceName', 'voteCooldownHours'
+          ]);
+        allow delete: if false;
+      }
+
+      match /votes/{uid} {
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow list: if false;
+        allow create: if signedIn()
+          && request.auth.uid == uid
+          && uid != get(serverPath(serverId)).data.ownerUid
+          && request.resource.data.uid == uid
+          && request.resource.data.serverId == serverId
+          && request.resource.data.keys().hasOnly(['uid', 'serverId', 'createdAt'])
+          && voteMatchesServerCounter(serverId, 1);
+        allow delete: if signedIn()
+          && request.auth.uid == uid
+          && voteMatchesServerCounter(serverId, -1);
+        allow update: if false;
+      }
+
+      match /billing/{docId} {
+        allow get, list: if ownsServer(serverId);
+        allow write: if false;
+      }
+
+      match /playerSnapshots/{snapshotId} {
+        allow get, list: if get(serverPath(serverId)).data.get('isPublished', false) == true;
+        allow write: if false;
+      }
+    }
+
+    match /serverClaimRequests/{claimId} {
+      allow get: if signedIn() && resource.data.requesterUid == request.auth.uid;
+      allow list: if false;
+      allow create: if signedIn()
+        && claimId == request.resource.data.serverId + '_' + request.auth.uid
+        && request.resource.data.requesterUid == request.auth.uid
+        && request.resource.data.requesterEmail == request.auth.token.email
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly([
+          'serverId', 'serverName', 'serverIp', 'requesterUid',
+          'requesterEmail', 'status', 'createdAt', 'updatedAt'
+        ])
+        && exists(serverPath(request.resource.data.serverId))
+        && get(serverPath(request.resource.data.serverId)).data.get('ownerUid', '') == '';
+      allow update, delete: if false;
+    }
+
+    // Webhook and administrative collections are managed by Admin SDK only.
+    match /paypalWebhookEvents/{eventId} {
+      allow read, write: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
