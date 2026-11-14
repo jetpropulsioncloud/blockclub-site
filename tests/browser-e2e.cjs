@@ -70,10 +70,19 @@ async function run() {
     let blockedProductionCalls = 0;
     await context.route("**/us-central1-blockclub-4742a.cloudfunctions.net/**", async (route) => {
       blockedProductionCalls++;
+      // Return an offline fixture so the UI can render status without live calls.
       await route.fulfill({
-        status: 503,
+        status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ error: "Production endpoint intentionally disabled in integration tests." }),
+        body: JSON.stringify({
+          ok: true,
+          cached: false,
+          status: "offline",
+          online: false,
+          playersOnline: 0,
+          maxPlayers: 0,
+          players: { online: 0, max: 0 }
+        }),
       });
     });
 
