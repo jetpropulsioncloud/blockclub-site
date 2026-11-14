@@ -231,3 +231,23 @@ test("Publish action remains blocked until the builder finishes loading", async 
   assert.equal(calls, 0);
   assert.equal(button.disabled, true);
 });
+
+test("Add Text initializes a block without a runtime ReferenceError", () => {
+  const addTextSource = extract("function addTextBlock() {", "\nfunction addImageBlock() {");
+  let saveCalls = 0;
+  let renderCalls = 0;
+  const ctx = {
+    getPremiumLimits: () => ({ label: "Free", maxTextBlocks: 5 }),
+    state: { blocks: [] },
+    uid: () => "new-block",
+    renderAll: () => { renderCalls++; },
+    saveState: () => { saveCalls++; },
+    alert: () => { throw new Error("Unexpected limit dialog"); },
+  };
+  const addTextBlock = vm.runInNewContext(addTextSource + "\naddTextBlock;", ctx);
+  addTextBlock();
+  assert.equal(ctx.state.blocks.length, 1);
+  assert.equal(ctx.state.blocks[0].type, "text");
+  assert.equal(renderCalls, 1);
+  assert.equal(saveCalls, 1);
+});
