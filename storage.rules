@@ -1,0 +1,50 @@
+// REVIEW CANDIDATE — never deploy before validating existing live permissions.
+// New published images use serverPageUploads/{uid}/{serverId}/... so first
+// publish can upload safely before the server document exists.
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedInAs(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function validImage() {
+      return request.resource != null
+        && request.resource.size > 0
+        && request.resource.size <= 6 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    function ownsExistingServer(serverId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/servers/$(serverId))
+        && firestore.get(/databases/(default)/documents/servers/$(serverId)).data.ownerUid == request.auth.uid;
+    }
+
+    match /serverPageUploads/{uid}/{serverId}/{allPaths=**} {
+      allow get: if true; // Published image links need to work for visitors.
+      allow list: if signedInAs(uid);
+      allow create, update: if signedInAs(uid) && validImage();
+      allow delete: if signedInAs(uid);
+    }
+
+    match /draftUploads/{uid}/{serverId}/{allPaths=**} {
+      allow get, list: if signedInAs(uid);
+      allow create, update: if signedInAs(uid) && validImage();
+      allow delete: if signedInAs(uid);
+    }
+
+    // Legacy assets remain accessible. Editing/deleting them requires actual
+    // server ownership, unlike the new owner-scoped upload namespace.
+    match /serverPages/{serverId}/{allPaths=**} {
+      allow get: if true;
+      allow list: if ownsExistingServer(serverId);
+      allow create, update: if ownsExistingServer(serverId) && validImage();
+      allow delete: if ownsExistingServer(serverId);
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
