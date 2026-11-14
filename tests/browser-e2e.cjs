@@ -21,11 +21,11 @@ const PNG = Buffer.from(
 
 async function readServers(page) {
   return page.evaluate(async () => {
-    const { db } = await import("/firebase.js");
-    const { collection, getDocs } = await import(
+    const { db, auth } = await import("/firebase.js");
+    const { collection, getDocs, query, where } = await import(
       "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js"
     );
-    const snap = await getDocs(collection(db, "servers"));
+    const snap = await getDocs(query(collection(db, "servers"), where("ownerUid", "==", auth.currentUser.uid)));
     return snap.docs.map((doc) => ({
       id: doc.id,
       name: doc.data().name,
