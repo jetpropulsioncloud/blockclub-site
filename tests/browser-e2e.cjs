@@ -295,7 +295,10 @@ async function run() {
         );
         const denial = async (operation) => {
           try { await operation(); return false; }
-          catch (error) { return error.code === "permission-denied"; }
+          catch (error) {
+            if (error.code === "permission-denied" || error.code === "storage/unauthorized") return true;
+            throw new Error("Unexpected denial error: " + (error.code || error.message));
+          }
         };
         const serverRef = doc(db, "servers", args.id);
         const publicRead = (await getDoc(serverRef)).exists();
