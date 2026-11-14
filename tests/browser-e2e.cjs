@@ -80,10 +80,15 @@ async function run() {
     const page = await context.newPage();
     page.setDefaultTimeout(25_000);
     const pageErrors = [];
+    const dialogs = [];
     page.on("pageerror", (err) => {
       pageErrors.push(page.url() + ": " + err.message);
     });
+    page.on("console", (msg) => {
+      if (msg.type() === "error") pageErrors.push(page.url() + ": console: " + msg.text());
+    });
     page.on("dialog", async (dialog) => {
+      dialogs.push(dialog.type() + ": " + dialog.message());
       await dialog.accept(dialog.type() === "prompt" ? USERNAME : undefined);
     });
 
@@ -129,7 +134,17 @@ async function run() {
     await page.goto(ORIGIN + "/builder.html", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() =>
       window.bcAuth?.currentUser && document.body.dataset.builderReady === "true" && document.querySelector("#serverIpInput")?.disabled === false
-    );
+    ).catch(async (error) => {
+      const detail = await page.evaluate(() => ({
+        builderReady: document.body.dataset.builderReady,
+        authUid: window.bcAuth?.currentUser?.uid || null,
+        ipDisabled: document.querySelector("#serverIpInput")?.disabled,
+        nameDisabled: document.querySelector("#serverNameInput")?.disabled,
+        publishDisabled: document.querySelector("#publishBtn")?.disabled,
+        editorInert: document.querySelector(".builder-shell")?.hasAttribute("inert")
+      }));
+      throw new Error("Builder failed to initialize: " + JSON.stringify({detail,dialogs,pageErrors}) + " / " + error.message);
+    });
     await page.locator("#serverNameInput").fill(INITIAL_NAME);
     await page.locator("#serverIpInput").fill("play.phase1-example.test");
     await page.locator("#publishBtn").click();
