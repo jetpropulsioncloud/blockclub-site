@@ -2611,7 +2611,7 @@ function markBuilderReady() {
   if (nameEl) nameEl.disabled = false;
   lockIpField(Boolean(serverIdFromUrl));
 
-  for (const button of [publishBtn, previewBtn, resetBtn, exportBtn]) {
+  for (const button of [publishBtn, previewBtn, resetBtn, exportBtn, toggleDecoBtn]) {
     if (button) button.disabled = false;
   }
 }
