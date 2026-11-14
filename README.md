@@ -28,7 +28,7 @@ The test environment uses:
 
 - `demo-blockclub-e2e`, a non-deployable Firebase **demo** project ID.
 - `.firebase-e2e.json` to start local Auth (9099), Firestore (8080), Storage (9199), and Hosting (5000) emulators.
-- `firestore.rules` and `storage.rules` as review candidates under automated test, not verified live rules. The older `tests/firebase/*.e2e.rules` are NOT used by browser tests and must never be deployed.
+- `firestore.rules` and `storage.rules` as review candidates under automated test, not verified live rules. The superseded permissive emulator fixtures have been removed from this security branch.
 - A browser interceptor that replaces requests to the production Minecraft status Cloud Function with an offline test response; no production status requests are sent.
 
 To run locally, use a **disposable clone** of the repository with Node.js 22, Java 21, and Chromium prerequisites:
