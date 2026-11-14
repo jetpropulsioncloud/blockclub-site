@@ -606,28 +606,28 @@ function copyPageBackgroundFields(page) {
   };
 }
 
-async function preparePageBackgroundsForPublish(page, serverId, st, ref, pageId) {
+async function preparePageBackgroundsForPublish(page, serverId, st, ref, pageId, ownerUid) {
   const next = copyPageBackgroundFields(page);
 
   if (next.canvasBackgroundUrl.startsWith("data:")) {
     const webp = await compressToWebp(next.canvasBackgroundUrl, 1600, 0.82);
-    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/${pageId}_canvas.webp`);
+    const bgRef = ref(st, `serverPageUploads/${ownerUid}/${serverId}/backgrounds/${pageId}_canvas.webp`);
     next.canvasBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
-    next.canvasBackgroundStoragePath = `serverPages/${serverId}/backgrounds/${pageId}_canvas.webp`;
+    next.canvasBackgroundStoragePath = `serverPageUploads/${ownerUid}/${serverId}/backgrounds/${pageId}_canvas.webp`;
   }
 
   if (next.shellBackgroundUrl.startsWith("data:")) {
     const webp = await compressToWebp(next.shellBackgroundUrl, 1600, 0.82);
-    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/${pageId}_shell.webp`);
+    const bgRef = ref(st, `serverPageUploads/${ownerUid}/${serverId}/backgrounds/${pageId}_shell.webp`);
     next.shellBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
-    next.shellBackgroundStoragePath = `serverPages/${serverId}/backgrounds/${pageId}_shell.webp`;
+    next.shellBackgroundStoragePath = `serverPageUploads/${ownerUid}/${serverId}/backgrounds/${pageId}_shell.webp`;
   }
 
   if (next.pageBackgroundUrl.startsWith("data:")) {
     const webp = await compressToWebp(next.pageBackgroundUrl, 1600, 0.82);
-    const bgRef = ref(st, `serverPages/${serverId}/backgrounds/${pageId}_page.webp`);
+    const bgRef = ref(st, `serverPageUploads/${ownerUid}/${serverId}/backgrounds/${pageId}_page.webp`);
     next.pageBackgroundUrl = await uploadBlobAndGetUrl(bgRef, webp);
-    next.pageBackgroundStoragePath = `serverPages/${serverId}/backgrounds/${pageId}_page.webp`;
+    next.pageBackgroundStoragePath = `serverPageUploads/${ownerUid}/${serverId}/backgrounds/${pageId}_page.webp`;
   }
 
   return next;
@@ -1196,7 +1196,7 @@ function sanitizeHtml(dirty) {
   for (const el of toRemove) el.remove();
   return t.innerHTML;
 }
-async function prepareBlocksForPublish(blocks, serverId, st, ref, pageId = "home") {
+async function prepareBlocksForPublish(blocks, serverId, st, ref, pageId = "home", ownerUid) {
   const nextBlocks = [];
 
   for (const b of blocks || []) {
@@ -1231,7 +1231,7 @@ async function prepareBlocksForPublish(blocks, serverId, st, ref, pageId = "home
 
       const webp = await compressToWebp(dataUrl, 1200, 0.82);
       const fileId = safeFileName(`${pageId}_${copy.id || crypto.randomUUID()}`);
-      const storageRef = ref(st, `serverPages/${serverId}/images/${fileId}.webp`);
+      const storageRef = ref(st, `serverPageUploads/${ownerUid}/${serverId}/images/${fileId}.webp`);
       const imageUrl = await uploadBlobAndGetUrl(storageRef, webp);
 
       delete copy.dataUrl;
@@ -1391,7 +1391,8 @@ async function publishToFirebase(payload) {
       serverId,
       st,
       ref,
-      pageId
+      pageId,
+      user.uid
     );
 
     const preparedBackgrounds = await preparePageBackgroundsForPublish(
@@ -1399,7 +1400,8 @@ async function publishToFirebase(payload) {
       serverId,
       st,
       ref,
-      pageId
+      pageId,
+      user.uid
     );
 
     preparedPages.push({
@@ -1424,7 +1426,7 @@ async function publishToFirebase(payload) {
   let iconStoragePath = String(state.meta?.iconStoragePath || "").trim();
   if (iconUrl.startsWith("data:")) {
     const webp = await compressToWebp(iconUrl, 256, 0.9);
-    const iconPath = `serverPages/${serverId}/icons/icon_${Date.now()}.webp`;
+    const iconPath = `serverPageUploads/${user.uid}/${serverId}/icons/icon_${Date.now()}.webp`;
     const iconRef = ref(st, iconPath);
 
     iconUrl = await uploadBlobAndGetUrl(iconRef, webp);
@@ -1570,7 +1572,9 @@ async function handleServerIconUpload() {
       await deleteStorageFile(state.meta.iconStoragePath);
     }
 
-    const iconPath = `serverPages/${routedServerId}/icons/icon_${Date.now()}.webp`;
+    const iconOwner = await waitForAuthUser();
+    if (!iconOwner) throw new Error("Sign in before uploading your icon.");
+    const iconPath = `serverPageUploads/${iconOwner.uid}/${routedServerId}/icons/icon_${Date.now()}.webp`;
     const iconRef = ref(st, iconPath);
 
     const iconUrl = await uploadBlobAndGetUrl(iconRef, webp);
