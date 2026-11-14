@@ -316,7 +316,7 @@
         const ipKey = String(ip || "").trim().toLowerCase();
         if (!ipKey) return false;
 
-        const q = query(collection(db, "servers"), where("ipKey", "==", ipKey));
+        const q = query(collection(db, "servers"), where("ipKey", "==", ipKey), where("isPublished", "==", true));
         const snap = await getDocs(q);
         return !snap.empty;
       }
@@ -369,7 +369,6 @@
           status: "unknown",
           players: null,
           ownerUid: user.uid,
-          ownerEmail: user.email || "",
           createdAt: serverTimestamp(),
           isPublished: false,
           pagePublishedAt: null,
