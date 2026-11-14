@@ -11,10 +11,10 @@
     ]
   },
   "firestore": {
-    "rules": "tests/firebase/firestore.e2e.rules"
+    "rules": "firestore.rules"
   },
   "storage": {
-    "rules": "tests/firebase/storage.e2e.rules"
+    "rules": "storage.rules"
   },
   "emulators": {
     "auth": {
