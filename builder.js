@@ -2219,7 +2219,7 @@ function addTextBlock() {
   };
   state.blocks.push(b);
   renderAll();
-  saveState();v
+  saveState();
 }
 
 function addImageBlock() {
