@@ -156,6 +156,7 @@ async function run() {
       return image && image.src.includes(":9199/");
     });
     await page.locator("#publishBtn").click();
+    await page.locator("#exportDialog").waitFor({ state: "visible" });
     docs = await readServers(page);
     assert.equal(docs.length, 1, "Edit should keep the same server ID");
     assert.equal(docs[0].name, EDITED_NAME);
