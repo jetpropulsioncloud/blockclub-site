@@ -56,6 +56,7 @@ function createPublisher(initialId = null, initialOwner = "user-1") {
     serverIpInput: { value: "play.example.net" },
   };
   const context = {
+    LAST_SERVER_ID_KEY: "bc_last_server_id",
     serverIdFromUrl: initialId,
     window: { bcDb: {}, bcStorage: {} },
     document: { getElementById: (id) => elements[id] || null },
