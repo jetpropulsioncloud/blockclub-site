@@ -1305,6 +1305,11 @@
           const username = prompt("Pick a username (letters/numbers/_ only).") || "";
           await register(email, password, username);
           await resolveHomepageOwnerState(auth.currentUser);
+          // Registration has just committed this username to Firestore. Display it
+          // immediately rather than relying on an overlapping auth-state callback.
+          if (auth.currentUser) {
+            setAuthUI(auth.currentUser, `@${username.trim().toLowerCase()}`);
+          }
           closeModal();
         } catch (e) {
           elMsg.textContent = e?.message || "Something went wrong.";
