@@ -102,7 +102,23 @@ async function run() {
     await page.locator("#btnLogin").click();
     await page.waitForFunction(() =>
       document.querySelector("#userLabel")?.textContent?.startsWith("@phase1e2e")
-    );
+    ).catch(async (error) => {
+      const detail = await page.evaluate(async () => {
+        const { auth, db } = await import("/firebase.js");
+        const { doc, getDoc } = await import(
+          "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js"
+        );
+        const uid = auth.currentUser?.uid || null;
+        const profile = uid ? await getDoc(doc(db, "users", uid)).catch(() => null) : null;
+        return {
+          uid,
+          username: profile?.exists() ? profile.data()?.username : null,
+          authMessage: document.querySelector("#authMsg")?.textContent,
+          userLabel: document.querySelector("#userLabel")?.textContent
+        };
+      });
+      throw new Error("Registration UI did not settle: " + JSON.stringify(detail) + " / " + error.message);
+    });
     const userId = await page.evaluate(async () => {
       const { auth } = await import("/firebase.js");
       return auth.currentUser?.uid;
@@ -112,7 +128,7 @@ async function run() {
 
     await page.goto(ORIGIN + "/builder.html", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() =>
-      window.bcAuth?.currentUser && document.querySelector("#serverIpInput")?.disabled === false
+      window.bcAuth?.currentUser && document.body.dataset.builderReady === "true" && document.querySelector("#serverIpInput")?.disabled === false
     );
     await page.locator("#serverNameInput").fill(INITIAL_NAME);
     await page.locator("#serverIpInput").fill("play.phase1-example.test");
@@ -140,7 +156,7 @@ async function run() {
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() =>
-      window.bcAuth?.currentUser && document.querySelector("#serverIpInput")?.disabled === true
+      window.bcAuth?.currentUser && document.body.dataset.builderReady === "true" && document.querySelector("#serverIpInput")?.disabled === true
     );
     assert.equal(await page.locator("#serverNameInput").inputValue(), INITIAL_NAME);
     await page.locator("#serverNameInput").fill(EDITED_NAME);
