@@ -1198,6 +1198,7 @@
       const elLogout = document.getElementById("btnLogout");
 
       let mode = "login";
+      let ownerStateRequestId = 0;
 
       function openModal() {
         elModal.style.display = "block";
@@ -1377,6 +1378,7 @@
       }
 
       async function resolveHomepageOwnerState(user) {
+        const requestId = ++ownerStateRequestId;
         if (!user) {
           setAuthUI(null);
           setServerOwnerActions();
@@ -1388,6 +1390,7 @@
         const data = userSnap.exists() ? userSnap.data() : null;
         const label = data?.username ? `@${data.username}` : user.email;
 
+        if (requestId !== ownerStateRequestId) return;
         setAuthUI(user, label);
 
         const ownedServersQuery = query(
@@ -1399,6 +1402,7 @@
         const ownedServersSnap = await getDocs(ownedServersQuery);
         const ownedServerId = ownedServersSnap.empty ? null : ownedServersSnap.docs[0].id;
 
+        if (requestId !== ownerStateRequestId) return;
         setServerOwnerActions({
           user,
           serverId: ownedServerId
