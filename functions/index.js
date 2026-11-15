@@ -2,8 +2,6 @@ const { defineSecret } = require("firebase-functions/params");
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { sendVote } = require("@hytaleone/votifier");
-const iconUrl = `https://api.mcsrvstat.us/icon/${encodeURIComponent(ip)}`;
-const iconUrl = server.iconUrl || `https://api.mcsrvstat.us/icon/${encodeURIComponent(server.ip || "")}`;
 admin.initializeApp();
 const paypalClientId = defineSecret("PAYPAL_CLIENT_ID");
 const paypalClientSecret = defineSecret("PAYPAL_CLIENT_SECRET");
