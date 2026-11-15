@@ -5,7 +5,13 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**",
-      "functions/**"
+      "functions/**",
+      "scripts/**",
+      "package*.json",
+      "serviceAccountKey*.json",
+      "**/serviceAccountKey*.json",
+      "**/*.pem",
+      "**/*.key"
     ]
   },
   "functions": [
